@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Calidad · Retención</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --navy:#13233A;
+  --navy-2:#1B324E;
+  --blue:#2E6DA4;
+  --blue-soft:#E9F1FA;
+  --green:#1E8E5A;
+  --green-soft:#E5F5ED;
+  --red:#C0392B;
+  --red-soft:#FBEAE9;
+  --amber:#C8862A;
+  --amber-soft:#FBF1E1;
+  --bg:#F3F5F8;
+  --card:#FFFFFF;
+  --border:#E1E5EB;
+  --text:#1B232E;
+  --text-soft:#646E7C;
+  --text-faint:#9BA4B0;
+  --radius:12px;
+  --radius-sm:8px;
+  --font-display:'Sora',sans-serif;
+  --font-body:'Inter',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --shadow:0 1px 2px rgba(19,35,58,.06), 0 4px 16px rgba(19,35,58,.05);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;font-size:14px;}
+::selection{background:#BFD9EF;}
+
+/* ===== LAYOUT ===== */
+.app{display:flex;min-height:100vh;}
+.sidebar{
+  width:240px;flex-shrink:0;background:var(--navy);
+  display:flex;flex-direction:column;padding:22px 14px;
+  position:fixed;top:0;left:0;height:100vh;z-index:50;
+}
+.brand{display:flex;align-items:center;gap:10px;padding:6px 10px 26px;}
+.brand-mark{
+  width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--blue),#5FA8DC);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  font-family:var(--font-display);font-weight:800;color:#fff;font-size:15px;
+}
+.brand-text{line-height:1.15;}
+.brand-text strong{display:block;font-family:var(--font-display);color:#fff;font-size:14.5px;font-weight:700;letter-spacing:.2px;}
+.brand-text span{display:block;color:#8EA3BC;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;margin-top:2px;}
+
+.nav{display:flex;flex-direction:column;gap:4px;margin-top:6px;}
+.nav-btn{
+  display:flex;align-items:center;gap:11px;padding:10px 12px;border:none;background:transparent;
+  color:#AEBED3;border-radius:var(--radius-sm);font-size:13.5px;font-weight:500;text-align:left;
+  transition:background .15s,color .15s;
+}
+.nav-btn svg{width:18px;height:18px;flex-shrink:0;opacity:.85;}
+.nav-btn:hover{background:rgba(255,255,255,.06);color:#fff;}
+.nav-btn.active{background:var(--blue);color:#fff;}
+.nav-btn.active svg{opacity:1;}
+.nav-num{font-family:var(--font-mono);font-size:10.5px;color:#5E7390;width:16px;flex-shrink:0;}
+.nav-btn.active .nav-num{color:rgba(255,255,255,.65);}
+
+.sidebar-foot{margin-top:auto;padding:12px 10px 2px;border-top:1px solid rgba(255,255,255,.08);}
+.storage-pill{display:flex;align-items:center;gap:7px;font-size:11px;color:#8EA3BC;padding:8px 2px 0;}
+.storage-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.storage-dot.off{background:var(--amber);}
+
+.main{flex:1;margin-left:240px;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{
+  height:64px;flex-shrink:0;background:var(--card);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:30;
+}
+.topbar h1{font-family:var(--font-display);font-size:18px;font-weight:700;margin:0;}
+.topbar .sub{color:var(--text-soft);font-size:12.5px;margin-top:1px;}
+.content{padding:26px 28px 60px;flex:1;}
+.view{display:none;}
+.view.active{display:block;animation:fadeIn .25s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+/* ===== GENERIC ===== */
+.grid{display:grid;gap:18px;}
+.cards-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
+.kpi{padding:18px 20px;}
+.kpi-label{font-size:12px;color:var(--text-soft);font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+.kpi-value{font-family:var(--font-display);font-size:28px;font-weight:800;margin-top:6px;}
+.kpi-foot{font-size:12px;color:var(--text-faint);margin-top:4px;}
+.kpi.green .kpi-value{color:var(--green);}
+.kpi.red .kpi-value{color:var(--red);}
+.kpi.blue .kpi-value{color:var(--blue);}
+
+.panel{padding:20px 22px;margin-bottom:20px;}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.panel-head h3{font-family:var(--font-display);font-size:15px;font-weight:700;margin:0;}
+.panel-head .hint{font-size:12px;color:var(--text-faint);}
+.two-col{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;}
+
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-soft);font-weight:700;padding:9px 10px;border-bottom:1px solid var(--border);}
+td{padding:10px;border-bottom:1px solid #EEF1F4;}
+tr:last-child td{border-bottom:none;}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;font-size:11.5px;font-weight:600;}
+.badge.green{background:var(--green-soft);color:var(--green);}
+.badge.red{background:var(--red-soft);color:var(--red);}
+.badge.amber{background:var(--amber-soft);color:var(--amber);}
+.badge.gray{background:#EEF1F4;color:var(--text-soft);}
+
+.stat-row{display:flex;align-items:center;gap:12px;padding:8px 4px;border-bottom:1px solid #EEF1F4;}
+.stat-row:last-child{border-bottom:none;}
+.stat-label{flex:0 0 230px;font-size:12.5px;font-weight:600;color:var(--text);line-height:1.3;}
+.stat-label .stat-sub{display:block;font-size:10.5px;font-weight:500;color:var(--text-faint);margin-top:1px;}
+.stat-bar-track{flex:1;height:8px;background:#EEF1F4;border-radius:99px;overflow:hidden;min-width:60px;}
+.stat-bar-fill{height:100%;border-radius:99px;transition:width .3s;}
+.stat-pct{flex:0 0 50px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:12.5px;}
+.stat-n{flex:0 0 64px;text-align:right;font-size:10.5px;color:var(--text-faint);}
+.stat-scroll{max-height:380px;overflow-y:auto;}
+.motivo-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #EEF1F4;}
+.motivo-row:last-child{border-bottom:none;}
+.motivo-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+@media (max-width:700px){ .stat-label{flex-basis:140px;font-size:11.5px;} }
+
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;border:1px solid transparent;transition:filter .12s,background .12s;}
+.btn:hover{filter:brightness(.96);}
+.btn-primary{background:var(--blue);color:#fff;}
+.btn-dark{background:var(--navy);color:#fff;}
+.btn-outline{background:#fff;color:var(--text);border-color:var(--border);}
+.btn-outline:hover{background:#F7F9FB;}
+.btn-danger-outline{background:#fff;color:var(--red);border-color:#F1C9C4;}
+.btn-success{background:var(--green);color:#fff;}
+.btn-sm{padding:6px 11px;font-size:12px;}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--text-soft);margin-bottom:5px;}
+.field input,.field select,.field textarea{
+  width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#fff;color:var(--text);
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid #BFD9EF;border-color:var(--blue);}
+.field textarea{resize:vertical;min-height:64px;}
+.field-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+
+.empty{padding:32px 20px;text-align:center;color:var(--text-faint);font-size:13px;}
+.empty svg{width:36px;height:36px;opacity:.4;margin-bottom:10px;}
+
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:#D6DCE3;border-radius:6px;}
+
+@media (max-width:980px){
+  .sidebar{display:none;}
+  .main{margin-left:0;}
+  .cards-row{grid-template-columns:repeat(2,1fr);}
+  .two-col{grid-template-columns:1fr;}
+  .field-row{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">CC</div>
+      <div class="brand-text"><strong>Control de Calidad</strong><span>Retención</span></div>
+    </div>
+    <nav class="nav">
+      <button class="nav-btn active" data-view="dashboard"><span class="nav-num">01</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard</button>
+      <button class="nav-btn" data-view="evaluacion"><span class="nav-num">02</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        Evaluación</button>
+      <button class="nav-btn" data-view="perfiles"><span class="nav-num">03</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0114 0v1"/></svg>
+        Perfiles</button>
+      <button class="nav-btn" data-view="basedatos"><span class="nav-num">04</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+        Base de datos</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="storage-pill"><span id="storage-dot" class="storage-dot"></span><span id="storage-label">Verificando almacenamiento…</span></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="topbar-title">Dashboard</h1>
+        <div class="sub" id="topbar-sub">Resumen general de evaluaciones</div>
+      </div>
+      <div id="topbar-actions"></div>
+    </div>
+    <div class="content">
+
+      <div class="view active" id="view-dashboard"></div>
+      <div class="view" id="view-evaluacion"></div>
+      <div class="view" id="view-perfiles"></div>
+      <div class="view" id="view-basedatos"></div>
+
+    </div>
+  </div>
+</div>
+
+<div id="pdf-root" style="position:fixed;inset:0;background:#fff;z-index:9999;overflow:auto;display:none;">
+  <div id="pdf-content" style="width:760px;margin:0 auto;"></div>
+</div>
+<div id="pdf-loading-overlay" style="position:fixed;inset:0;background:rgba(19,35,58,.55);z-index:10000;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;padding:20px 28px;border-radius:12px;font-weight:700;font-family:'Sora',sans-serif;font-size:14px;color:#13233A;box-shadow:0 8px 30px rgba(0,0,0,.25);display:flex;align-items:center;gap:12px;">
+    <div style="width:18px;height:18px;border:3px solid #E1E5EB;border-top-color:#2E6DA4;border-radius:50%;animation:pdfspin .8s linear infinite;"></div>
+    <span>Generando PDF…</span>
+  </div>
+</div>
+<style>@keyframes pdfspin{to{transform:rotate(360deg);}}</style>
+
+<script>
+/* ============================== DATA: PAUTA DE EVALUACIÓN ============================== */
+const PAUTA = [
+  { cat:'EC_UF', catLabel:'Entrega de información', catPeso:10, items:[
+    { id:'entrega_info', nombre:'Entrega de información', peso:10, sub:[
+      {id:'info_correcta', t:'Entrega información correcta y completa'}
+    ]}
+  ]},
+  { cat:'EC_NEG', catLabel:'Evaluación comercial / negativa', catPeso:60, items:[
+    { id:'habilidad_comercial', nombre:'Habilidad comercial', peso:15, sub:[
+      {id:'filtros_descartes', t:'Filtros y/o descartes (identifica necesidad, sondeo de intención de baja)'},
+      {id:'sondeo_negativa', t:'Sondeo de la negativa'},
+      {id:'rebate_negativa', t:'Rebate ante la negativa'},
+      {id:'resalta_ventaja', t:'Resalta ventaja o beneficios de la herramienta'}
+    ]},
+    { id:'gestion_cierre', nombre:'Correcta gestión de cierre', peso:10, sub:[
+      {id:'actitud_comercial', t:'Actitud comercial'},
+      {id:'comentarios_inadecuados', t:'Uso de comentarios inadecuados/negativos sobre la empresa'},
+      {id:'induce_baja', t:'Induce a la baja / pedir más beneficios / reclamar'},
+      {id:'pre_cierre', t:'Uso del pre-cierre comercial'}
+    ]},
+    { id:'procedimiento_establecido', nombre:'Procedimiento establecido', peso:15, sub:[
+      {id:'validacion_datos', t:'Validación o solicitud de datos'},
+      {id:'validacion_resolucion', t:'Validación de resolución'},
+      {id:'fidelizacion_uf', t:'Fidelización del UF'},
+      {id:'validacion_cobertura', t:'Validación cobertura'}
+    ]},
+    { id:'manejo_tiempos', nombre:'Manejo de tiempos', peso:10, sub:[
+      {id:'gestiona_tiempos', t:'Gestiona adecuadamente los tiempos'}
+    ]},
+    { id:'registro_validacion', nombre:'Registro y validación', peso:10, sub:[
+      {id:'tipificacion_registro', t:'Tipificación y registro de datos en sistemas'}
+    ]}
+  ]},
+  { cat:'ENC', catLabel:'Encuesta de atención', catPeso:30, items:[
+    { id:'protocolo_atencion', nombre:'Protocolo de atención', peso:5, sub:[
+      {id:'bienvenida_despedida', t:'Bienvenida y despedida'},
+      {id:'uso_muletillas', t:'Uso de muletillas'},
+      {id:'personalizacion', t:'Personalización'}
+    ]},
+    { id:'habilidades_comunicativas', nombre:'Habilidades comunicativas', peso:25, sub:[
+      {id:'claridad_informacion', t:'Claridad en la información'},
+      {id:'escucha_activa', t:'Escucha activa'},
+      {id:'empatia_sonrisa', t:'Empatía y sonrisa telefónica'}
+    ]}
+  ]}
+];
+const PAUTA_TOTAL = PAUTA.reduce((s,c)=>s+c.items.reduce((s2,i)=>s2+i.peso,0),0);
+
+const FALTAS_GRAVES = [
+  { cat:'Información falsa', items:[
+    'Ofrecimiento de un producto y/o servicio no existente',
+    'Entrega información o argumentos falsos para evitar la baja',
+    'Genera retención con usuario y no titular',
+    'Genera retención con menor de edad',
+    'Genera retención suplantando la identidad del titular',
+    'No realiza el registro de la baja en los sistemas intencionalmente',
+    'Se concreta traslado en zonas prohibidas o sin cobertura',
+    'Registra en sistemas promoción distinta a la ofrecida',
+    'No realiza la devolución inmediata',
+    'No realiza los intentos de timbrado (gestión out)',
+    'Registra retención en sistema sin encontrarse en línea con el cliente',
+    'Registra migración como retención',
+    'Gestiona tickets no asignados',
+    'Retención sin gestión previa',
+    'Registra retenido sin intención de baja'
+  ]},
+  { cat:'Mala actitud', items:[
+    'Asesor falta el respeto al cliente (levanta la voz, insulta o agrede, se expresa irónica o sarcásticamente, amenaza)',
+    'Abandona o corta llamada sin finalizar atención'
+  ]}
+];
+
+const MOTIVO_OPTIONS = {
+  Agente: [
+    'ASESOR CORTA LA LLAMADA','FALTA DE HABILIDAD COMERCIAL','NO ATIENDE CASO O LLAMADA','NO DEVUELVE LA LLAMADA',
+    'NO SONDEA / NO REBATE','REBATE ERRADO O INCOMPLETO','SIN INTENTO DE LLAMADA','COMENTARIOS INADECUADOS SOBRE LA EMPRESA',
+    'ERROR EN TIEMPO DE RESPUESTA','INDUCE A LA BAJA O RECLAMO','MALA ACTITUD COMERCIAL','ERROR EN USO DE PRE-CIERRE',
+    'MALA ACTITUD GENERAL','GESTION INDEBIDA','BRINDA INFORMACION FALSA','OTROS ASESOR'
+  ],
+  Cliente: [
+    'PERFIL DE USUARIO','CLIENTE OCUPADO','CONSULTA ATC / SOPORTE / RECLAMOS','DUDA O RECLAMO DE FACTURACION',
+    'TV NO COMPATIBLE CON DGO','CLIENTE INDICA QUE CONSULTARA','CONTRATO VIGENTE CON OPERADOR','CLIENTE CORTA LA LLAMADA',
+    'DESCONOCE DIRECCION','DESEA PLAN MENOR','DESEA TV CON DECO (SOLO TV)','REQUIERE IP PUBLICA',
+    'NO CONTESTA / BUZON DE VOZ','NO DESEA EL SERVICIO','VIAJE','MUDANZA','MOTIVO ECONOMICO','DESASTRES NATURALES','OTROS CLIENTE'
+  ],
+  Proceso: [
+    'FUERA DE COBERTURA','CLIENTE DESEA TV','CLIENTE DESEA FIJO','CLIENTE DESEA REPETIDOR','CLIENTE NO APLICA PARA DESCUENTO',
+    'INCUMPLIMIENTO DE SERVICIO TECNICO','COBRO POR EQUIPO DAÑADO','FALLAS REITERATIVAS EN EL SERVICIO','INCREMENTO DE TARIFARIO',
+    'MALA GESTION DE VENTAS','MALA EXPERIENCIA CON LA MARCA','OFERTA DE LA COMPETENCIA','OTROS PROCESO'
+  ]
+};
+
+/* ============================== FIREBASE CONFIG ============================== */
+// 1) Ve a Firebase Console > Configuración del proyecto > Tus apps > SDK setup and configuration
+// 2) Copia tu firebaseConfig y reemplaza el objeto de abajo.
+// 3) Si dejas los valores de ejemplo, la app funcionará igual dentro de Claude.ai
+//    (usa el guardado interno), pero NO guardará datos una vez publicada en la web.
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  projectId: "TU_PROYECTO",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "TU_SENDER_ID",
+  appId: "TU_APP_ID"
+};
+const FIREBASE_CONFIGURED = firebaseConfig.apiKey !== "TU_API_KEY";
+
+let db = null;
+if(FIREBASE_CONFIGURED && typeof firebase !== 'undefined'){
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+  }catch(e){ console.error('Error inicializando Firebase', e); }
+}
+
+/* ============================== STORAGE ============================== */
+// Modo 1: dentro de Claude.ai usa window.storage (persistencia nativa del chat).
+// Modo 2: fuera de Claude.ai (sitio publicado) usa Firebase Firestore.
+const Storage = {
+  mode: (typeof window.storage !== 'undefined') ? 'claude' : (db ? 'firebase' : 'none'),
+  get available(){ return this.mode !== 'none'; },
+
+  async get(key, fallback, shared){
+    if(this.mode === 'claude'){
+      try{
+        const r = await window.storage.get(key, shared);
+        return r && r.value ? JSON.parse(r.value) : fallback;
+      }catch(e){ return fallback; }
+    }
+    if(this.mode === 'firebase'){
+      try{
+        const doc = await db.collection('calidad_data').doc(key).get();
+        return doc.exists ? JSON.parse(doc.data().value) : fallback;
+      }catch(e){ console.error('Firestore get error', e); return fallback; }
+    }
+    return fallback;
+  },
+
+  async set(key, value, shared){
+    if(this.mode === 'claude'){
+      try{ await window.storage.set(key, JSON.stringify(value), shared); return true; }
+      catch(e){ console.error('storage.set error', e); return false; }
+    }
+    if(this.mode === 'firebase'){
+      try{ await db.collection('calidad_data').doc(key).set({ value: JSON.stringify(value), updatedAt: new Date().toISOString() }); return true; }
+      catch(e){ console.error('Firestore set error', e); return false; }
+    }
+    return false;
+  }
+};
+
+/* ============================== STATE ============================== */
+let asesores = [];       // {id,nombre,dni,telefono,correo,grupo}
+let evaluaciones = [];
+
+function uid(prefix){ return (prefix||'id')+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
+function fmtDate(d){
+  if(!d) return '—';
+  const dt = (d instanceof Date)? d : new Date(d);
+  if(isNaN(dt)) return '—';
+  return dt.toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function todayISO(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function escapeHtml(s){ return (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function initials(name){
+  if(!name) return '--';
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]||'')[0]||'') + ((parts[1]||'')[0]||'');
+}
+function scoreColor(score){
+  if(score>=90) return 'green';
+  if(score>=70) return 'amber';
+  return 'red';
+}
+function getGroups(){
+  return [...new Set(asesores.map(a=>a.grupo).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+}
+function findAsesorByName(name){
+  if(!name) return null;
+  const n = name.trim().toLowerCase();
+  return asesores.find(a=>a.nombre.trim().toLowerCase()===n) || null;
+}
+
+/* ============================== PERSISTENCE ============================== */
+async function persistAsesores(){ await Storage.set('asesores', asesores, true); }
+async function persistEvaluaciones(){ await Storage.set('evaluaciones', evaluaciones, true); }
+
+async function loadAll(){
+  asesores = await Storage.get('asesores', [], true);
+  evaluaciones = await Storage.get('evaluaciones', [], true);
+}
+
+/* ============================== SCORING ============================== */
+function evaluarItem(item, answers){
+  const allAnswered = item.sub.every(s => answers[s.id]===true || answers[s.id]===false);
+  if(!allAnswered) return {complete:false, cumple:null, score:0};
+  const cumple = item.sub.every(s => answers[s.id]===true);
+  return {complete:true, cumple, score: cumple ? item.peso : 0};
+}
+function computeResultado(answers, faltasChecked){
+  if(faltasChecked && faltasChecked.length>0){
+    return {anulado:true, finalScore:0, items:{}, allComplete:true};
+  }
+  let total=0, allComplete=true;
+  const items={};
+  PAUTA.forEach(cat=>cat.items.forEach(item=>{
+    const r = evaluarItem(item, answers);
+    items[item.id]=r;
+    if(!r.complete) allComplete=false;
+    total += r.score;
+  }));
+  return {anulado:false, finalScore: Math.round(total*100)/100, items, allComplete};
+}
+
+/* ============================== NAVIGATION ============================== */
+const VIEW_META = {
+  dashboard:{title:'Dashboard', sub:'Resumen general de evaluaciones'},
+  evaluacion:{title:'Evaluación de llamada', sub:'Pauta de calificación dinámica'},
+  perfiles:{title:'Perfiles de asesores', sub:'Desempeño individual semanal y mensual'},
+  basedatos:{title:'Base de datos', sub:'Asesores por grupo'}
+};
+function switchView(view){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-'+view));
+  document.getElementById('topbar-title').textContent = VIEW_META[view].title;
+  document.getElementById('topbar-sub').textContent = VIEW_META[view].sub;
+  document.getElementById('topbar-actions').innerHTML = '';
+  if(view==='dashboard') renderDashboard();
+  if(view==='evaluacion') renderEvaluacionTopbarActions();
+  if(view==='perfiles') renderPerfiles();
+  if(view==='basedatos') renderBaseDatos();
+}
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>switchView(btn.dataset.view));
+});
+
+/* ============================== MÓDULO 1: DASHBOARD ============================== */
+let chartTrend=null, chartGrupo=null, chartRetencion=null, chartSemanal=null, chartMensual=null;
+
+function isInCurrentWeek(dateStr){
+  const d = new Date(dateStr); if(isNaN(d)) return false;
+  const now = new Date();
+  const start = new Date(now); start.setDate(now.getDate()-now.getDay()); start.setHours(0,0,0,0);
+  const end = new Date(start); end.setDate(start.getDate()+7);
+  return d>=start && d<end;
+}
+function isInCurrentMonth(dateStr){
+  const d = new Date(dateStr); if(isNaN(d)) return false;
+  const now = new Date();
+  return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+}
+
+function colorForPct(pct){
+  if(pct===null || pct===undefined) return '#D6DCE3';
+  if(pct>=90) return 'var(--green)';
+  if(pct>=70) return 'var(--amber)';
+  return 'var(--red)';
+}
+function statBarRowHTML(label, tag, pct, n){
+  const color = colorForPct(pct);
+  const pctText = (pct===null||pct===undefined) ? '—' : pct.toFixed(0)+'%';
+  return `<div class="stat-row">
+    <div class="stat-label">${escapeHtml(label)}${tag?`<span class="stat-sub">${escapeHtml(tag)}</span>`:''}</div>
+    <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct?Math.min(pct,100):0}%;background:${color};"></div></div>
+    <div class="stat-pct" style="color:${color};">${pctText}</div>
+    <div class="stat-n">${n} eval.</div>
+  </div>`;
+}
+
+function computeCategoriaStats(){
+  return PAUTA.map(cat=>{
+    let sum=0, n=0;
+    evaluaciones.forEach(e=>{
+      if(e.anulado || !e.itemResults) return;
+      let catScore=0, complete=true;
+      cat.items.forEach(item=>{
+        const res = e.itemResults[item.id];
+        if(res && res.complete) catScore += res.score; else complete=false;
+      });
+      if(complete){ sum += (catScore/cat.catPeso*100); n++; }
+    });
+    return { label: cat.catLabel, tag: cat.cat+' · peso '+cat.catPeso+'%', pct: n? sum/n : null, n };
+  });
+}
+function computeItemStats(){
+  const rows=[];
+  PAUTA.forEach(cat=>cat.items.forEach(item=>{
+    let cumple=0, total=0;
+    evaluaciones.forEach(e=>{
+      if(e.anulado || !e.itemResults) return;
+      const res = e.itemResults[item.id];
+      if(res && res.complete){ total++; if(res.cumple) cumple++; }
+    });
+    rows.push({ label:item.nombre, tag:cat.cat+' · peso '+item.peso+'%', pct: total? (cumple/total*100) : null, n:total });
+  }));
+  return rows;
+}
+function computeSubitemStats(){
+  const rows=[];
+  PAUTA.forEach(cat=>cat.items.forEach(item=>item.sub.forEach(s=>{
+    let cumple=0, total=0;
+    evaluaciones.forEach(e=>{
+      if(e.anulado || !e.answers) return;
+      const val = e.answers[s.id];
+      if(val===true || val===false){ total++; if(val===true) cumple++; }
+    });
+    rows.push({ label:s.t, tag:item.nombre, pct: total? (cumple/total*100) : null, n:total });
+  })));
+  return rows.sort((a,b)=>{
+    if(a.pct===null) return 1;
+    if(b.pct===null) return -1;
+    return a.pct-b.pct;
+  });
+}
+function computeMotivoStats(){
+  const noRet = evaluaciones.filter(e=>e.retenida===false);
+  const counts = {Agente:0, Cliente:0, Proceso:0};
+  let sinEspecificar = 0;
+  noRet.forEach(e=>{
+    if(e.aQuien && counts.hasOwnProperty(e.aQuien)) counts[e.aQuien]++; else sinEspecificar++;
+  });
+  return { counts, sinEspecificar, total: noRet.length };
+}
+
+function weekKey(dateStr){
+  const d = new Date(dateStr); if(isNaN(d)) return null;
+  const start = new Date(d); start.setDate(d.getDate()-d.getDay()); start.setHours(0,0,0,0);
+  return start.toISOString().slice(0,10);
+}
+function monthKey(dateStr){
+  const d = new Date(dateStr); if(isNaN(d)) return null;
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function weekLabel(k){ return new Date(k).toLocaleDateString('es-PE',{day:'2-digit',month:'short'}); }
+function monthLabel(k){ const [y,m]=k.split('-'); return new Date(parseInt(y),parseInt(m)-1,1).toLocaleDateString('es-PE',{month:'short',year:'2-digit'}); }
+function computeBucketedAvg(keyFn, limit){
+  const map = {};
+  evaluaciones.forEach(e=>{
+    const k = keyFn(e.fecha);
+    if(!k) return;
+    if(!map[k]) map[k]={sum:0,n:0};
+    if(!e.anulado){ map[k].sum += e.finalScore; map[k].n++; }
+  });
+  const keys = Object.keys(map).sort();
+  return keys.slice(-limit).map(k=>({ key:k, avg: map[k].n? map[k].sum/map[k].n : null, n: map[k].n }));
+}
+
+function renderDashboard(){
+  const total = evaluaciones.length;
+  const validas = evaluaciones.filter(e=>!e.anulado);
+  const avg = validas.length ? (validas.reduce((s,e)=>s+e.finalScore,0)/validas.length) : 0;
+  const retenidas = evaluaciones.filter(e=>e.retenida===true).length;
+  const noRetenidas = evaluaciones.filter(e=>e.retenida===false).length;
+  const tasaRetencion = (retenidas+noRetenidas) ? (retenidas/(retenidas+noRetenidas)*100) : 0;
+  const anuladas = evaluaciones.filter(e=>e.anulado).length;
+
+  document.getElementById('view-dashboard').innerHTML = `
+    <div class="cards-row">
+      <div class="card kpi"><div class="kpi-label">Evaluaciones</div><div class="kpi-value">${total}</div><div class="kpi-foot">Registradas en total</div></div>
+      <div class="card kpi blue"><div class="kpi-label">Nota promedio</div><div class="kpi-value">${avg.toFixed(1)}%</div><div class="kpi-foot">Sobre evaluaciones válidas</div></div>
+      <div class="card kpi green"><div class="kpi-label">Tasa de retención</div><div class="kpi-value">${tasaRetencion.toFixed(1)}%</div><div class="kpi-foot">${retenidas} retenidas / ${noRetenidas} no retenidas</div></div>
+      <div class="card kpi red"><div class="kpi-label">Exámenes anulados</div><div class="kpi-value">${anuladas}</div><div class="kpi-foot">Por falta grave</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card panel">
+        <div class="panel-head"><h3>Promedio de nota por grupo</h3></div>
+        <canvas id="chart-grupo" height="200"></canvas>
+      </div>
+      <div class="card panel">
+        <div class="panel-head"><h3>Retenida vs. no retenida</h3></div>
+        <canvas id="chart-retencion" height="200"></canvas>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card panel">
+        <div class="panel-head"><h3>Avance semanal</h3><span class="hint">Promedio por semana</span></div>
+        <canvas id="chart-semanal" height="190"></canvas>
+        <div id="caption-semanal" style="font-size:11px;color:var(--text-faint);margin-top:8px;"></div>
+      </div>
+      <div class="card panel">
+        <div class="panel-head"><h3>Avance mensual</h3><span class="hint">Promedio por mes</span></div>
+        <canvas id="chart-mensual" height="190"></canvas>
+        <div id="caption-mensual" style="font-size:11px;color:var(--text-faint);margin-top:8px;"></div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card panel">
+        <div class="panel-head"><h3>Nota por punto de evaluación</h3><span class="hint">EC_UF · EC_NEG · ENC</span></div>
+        <div id="stats-categoria"></div>
+      </div>
+      <div class="card panel">
+        <div class="panel-head"><h3>No retenida por motivo</h3><span class="hint">Agente · Cliente · Proceso</span></div>
+        <div id="stats-motivo"></div>
+      </div>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Nota por ítem</h3><span class="hint">% de cumplimiento sobre evaluaciones calificadas</span></div>
+      <div id="stats-item"></div>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Nota por sub-ítem</h3><span class="hint">Ordenado de menor a mayor cumplimiento</span></div>
+      <div id="stats-subitem" class="stat-scroll"></div>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Tendencia de notas (últimas evaluaciones)</h3></div>
+      <canvas id="chart-trend" height="90"></canvas>
+    </div>
+    <div class="two-col">
+      <div class="card panel">
+        <div class="panel-head"><h3>Top 5 asesores</h3><span class="hint">Mejor promedio</span></div>
+        <div id="ranking-top"></div>
+      </div>
+      <div class="card panel">
+        <div class="panel-head"><h3>Necesitan refuerzo</h3><span class="hint">Menor promedio</span></div>
+        <div id="ranking-bottom"></div>
+      </div>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Evaluaciones recientes</h3></div>
+      <div id="recientes-table"></div>
+    </div>
+  `;
+
+  if(total===0){
+    document.getElementById('chart-grupo').outerHTML = '<div class="empty">Aún no hay evaluaciones registradas.</div>';
+    document.getElementById('chart-retencion').outerHTML = '<div class="empty">Sin datos de retención todavía.</div>';
+    document.getElementById('chart-semanal').outerHTML = '<div class="empty">Registra evaluaciones para ver el avance semanal.</div>';
+    document.getElementById('chart-mensual').outerHTML = '<div class="empty">Registra evaluaciones para ver el avance mensual.</div>';
+    document.getElementById('caption-semanal').textContent = '';
+    document.getElementById('caption-mensual').textContent = '';
+    document.getElementById('stats-categoria').innerHTML = '<div class="empty">Sin datos todavía.</div>';
+    document.getElementById('stats-motivo').innerHTML = '<div class="empty">Sin llamadas no retenidas registradas.</div>';
+    document.getElementById('stats-item').innerHTML = '<div class="empty">Sin datos todavía.</div>';
+    document.getElementById('stats-subitem').innerHTML = '<div class="empty">Sin datos todavía.</div>';
+    document.getElementById('chart-trend').outerHTML = '<div class="empty">Registra evaluaciones para ver la tendencia.</div>';
+    document.getElementById('ranking-top').innerHTML = '<div class="empty">Sin datos suficientes.</div>';
+    document.getElementById('ranking-bottom').innerHTML = '<div class="empty">Sin datos suficientes.</div>';
+    document.getElementById('recientes-table').innerHTML = '<div class="empty">Aún no se ha registrado ninguna evaluación.</div>';
+  } else {
+    // por grupo
+    const grupos = [...new Set([...getGroups(), ...evaluaciones.map(e=>e.grupo).filter(Boolean)])].sort((a,b)=>a.localeCompare(b));
+    const grupoData = grupos.map(g=>{
+      const evs = validas.filter(e=>e.grupo===g);
+      return evs.length ? evs.reduce((s,e)=>s+e.finalScore,0)/evs.length : 0;
+    });
+    if(chartGrupo) chartGrupo.destroy();
+    chartGrupo = new Chart(document.getElementById('chart-grupo'), {
+      type:'bar',
+      data:{ labels: grupos.length?grupos:['Sin grupo'], datasets:[{ data: grupos.length?grupoData:[0], backgroundColor:'#2E6DA4', borderRadius:6, maxBarThickness:42 }]},
+      options:{ plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true, max:100, grid:{color:'#EEF1F4'} }, x:{grid:{display:false}} } }
+    });
+
+    if(chartRetencion) chartRetencion.destroy();
+    chartRetencion = new Chart(document.getElementById('chart-retencion'), {
+      type:'doughnut',
+      data:{ labels:['Retenida','No retenida'], datasets:[{ data:[retenidas, noRetenidas], backgroundColor:['#1E8E5A','#C0392B'], borderWidth:0 }]},
+      options:{ plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:11}}}}, cutout:'68%' }
+    });
+
+    const sorted = [...evaluaciones].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha)).slice(-15);
+    if(chartTrend) chartTrend.destroy();
+    chartTrend = new Chart(document.getElementById('chart-trend'), {
+      type:'line',
+      data:{ labels: sorted.map(e=>fmtDate(e.fecha)), datasets:[{ data: sorted.map(e=>e.anulado?0:e.finalScore), borderColor:'#2E6DA4', backgroundColor:'rgba(46,109,164,.1)', fill:true, tension:.35, pointRadius:3 }]},
+      options:{ plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true, max:100, grid:{color:'#EEF1F4'} }, x:{grid:{display:false}} } }
+    });
+
+    // avance semanal y mensual
+    const semanal = computeBucketedAvg(weekKey, 8);
+    if(chartSemanal) chartSemanal.destroy();
+    chartSemanal = new Chart(document.getElementById('chart-semanal'), {
+      type:'line',
+      data:{ labels: semanal.map(s=>weekLabel(s.key)), datasets:[{ data: semanal.map(s=>s.avg), borderColor:'#1E8E5A', backgroundColor:'rgba(30,142,90,.12)', fill:true, tension:.35, pointRadius:3, spanGaps:true }]},
+      options:{ plugins:{legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>{
+        const b = semanal[ctx.dataIndex];
+        if(b.avg===null) return 'Sin evaluaciones válidas esa semana (anuladas no cuentan)';
+        return `${b.avg.toFixed(1)}% · ${b.n} evaluación(es) válida(s)`;
+      }}}}, scales:{ y:{ beginAtZero:true, max:100, grid:{color:'#EEF1F4'} }, x:{grid:{display:false}} } }
+    });
+    const semanalConDatos = semanal.filter(s=>s.avg!==null).length;
+    document.getElementById('caption-semanal').textContent = semanalConDatos<2
+      ? 'Aún no hay suficientes semanas con evaluaciones válidas para trazar una línea de tendencia (se necesitan al menos 2).'
+      : `${semanalConDatos} semana(s) con evaluaciones válidas.`;
+
+    const mensual = computeBucketedAvg(monthKey, 8);
+    if(chartMensual) chartMensual.destroy();
+    chartMensual = new Chart(document.getElementById('chart-mensual'), {
+      type:'line',
+      data:{ labels: mensual.map(m=>monthLabel(m.key)), datasets:[{ data: mensual.map(m=>m.avg), borderColor:'#C8862A', backgroundColor:'rgba(200,134,42,.12)', fill:true, tension:.35, pointRadius:3, spanGaps:true }]},
+      options:{ plugins:{legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>{
+        const b = mensual[ctx.dataIndex];
+        if(b.avg===null) return 'Sin evaluaciones válidas ese mes (anuladas no cuentan)';
+        return `${b.avg.toFixed(1)}% · ${b.n} evaluación(es) válida(s)`;
+      }}}}, scales:{ y:{ beginAtZero:true, max:100, grid:{color:'#EEF1F4'} }, x:{grid:{display:false}} } }
+    });
+    const mensualConDatos = mensual.filter(m=>m.avg!==null).length;
+    document.getElementById('caption-mensual').textContent = mensualConDatos<2
+      ? 'Aún no hay suficientes meses con evaluaciones válidas para trazar una línea de tendencia (se necesitan al menos 2).'
+      : `${mensualConDatos} mes(es) con evaluaciones válidas.`;
+
+    // nota por punto de evaluación (categoría)
+    document.getElementById('stats-categoria').innerHTML = computeCategoriaStats().map(c=>statBarRowHTML(c.label, c.tag, c.pct, c.n)).join('');
+
+    // no retenida por motivo
+    const ms = computeMotivoStats();
+    if(ms.total===0){
+      document.getElementById('stats-motivo').innerHTML = '<div class="empty">Sin llamadas no retenidas registradas.</div>';
+    } else {
+      const motivoColors = {Agente:'#C0392B', Cliente:'#C8862A', Proceso:'#2E6DA4'};
+      let mh = '';
+      ['Agente','Cliente','Proceso'].forEach(k=>{
+        const n = ms.counts[k];
+        const pct = ms.total ? (n/ms.total*100) : 0;
+        mh += `<div class="motivo-row"><span class="motivo-dot" style="background:${motivoColors[k]};"></span>
+          <div style="flex:1;font-size:12.5px;font-weight:600;">${k}</div>
+          <div style="flex:2;"><div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%;background:${motivoColors[k]};"></div></div></div>
+          <div style="width:70px;text-align:right;font-family:var(--font-mono);font-size:12px;font-weight:700;">${n} (${pct.toFixed(0)}%)</div>
+        </div>`;
+      });
+      if(ms.sinEspecificar>0){
+        mh += `<div class="motivo-row"><span class="motivo-dot" style="background:#9BA4B0;"></span>
+          <div style="flex:1;font-size:12.5px;font-weight:600;color:var(--text-faint);">Sin especificar</div>
+          <div style="flex:2;"></div><div style="width:70px;text-align:right;font-size:12px;color:var(--text-faint);">${ms.sinEspecificar}</div></div>`;
+      }
+      document.getElementById('stats-motivo').innerHTML = mh;
+    }
+
+    // nota por ítem
+    document.getElementById('stats-item').innerHTML = computeItemStats().map(it=>statBarRowHTML(it.label, it.tag, it.pct, it.n)).join('');
+
+    // nota por sub-ítem (peor a mejor)
+    document.getElementById('stats-subitem').innerHTML = computeSubitemStats().map(s=>statBarRowHTML(s.label, s.tag, s.pct, s.n)).join('');
+
+    // rankings por asesor (promedio sobre evaluaciones válidas)
+    const byAsesor = {};
+    validas.forEach(e=>{
+      const key = e.nombre||'—';
+      if(!byAsesor[key]) byAsesor[key]={nombre:key, sum:0, n:0, grupo:e.grupo};
+      byAsesor[key].sum += e.finalScore; byAsesor[key].n++;
+    });
+    const ranked = Object.values(byAsesor).map(a=>({...a, avg:a.sum/a.n})).sort((a,b)=>b.avg-a.avg);
+    const rowHTML = a => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #EEF1F4;">
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--blue-soft);color:var(--blue);font-weight:700;font-size:11.5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials(a.nombre)}</div>
+      <div style="flex:1;"><div style="font-weight:600;font-size:13px;">${escapeHtml(a.nombre)}</div><div style="font-size:11px;color:var(--text-faint);">${escapeHtml(a.grupo||'Sin grupo')} · ${a.n} evaluación(es)</div></div>
+      <div class="badge ${scoreColor(a.avg)}">${a.avg.toFixed(1)}%</div></div>`;
+    document.getElementById('ranking-top').innerHTML = ranked.length ? ranked.slice(0,5).map(rowHTML).join('') : '<div class="empty">Sin datos suficientes.</div>';
+    document.getElementById('ranking-bottom').innerHTML = ranked.length ? ranked.slice(-5).reverse().map(rowHTML).join('') : '<div class="empty">Sin datos suficientes.</div>';
+
+    const recientes = [...evaluaciones].sort((a,b)=>new Date(b.createdAt||b.fecha)-new Date(a.createdAt||a.fecha)).slice(0,10);
+    document.getElementById('recientes-table').innerHTML = `<table><tr><th>Asesor</th><th>Grupo</th><th>Fecha</th><th>Evaluador</th><th>Retención</th><th>Nota</th></tr>
+      ${recientes.map(e=>`<tr>
+        <td>${escapeHtml(e.nombre)}</td><td>${escapeHtml(e.grupo||'—')}</td><td>${fmtDate(e.fecha)}</td><td>${escapeHtml(e.evaluador||'—')}</td>
+        <td>${e.retenida===true?'<span class="badge green">Retenida</span>':e.retenida===false?'<span class="badge red">No retenida</span>':'<span class="badge gray">—</span>'}</td>
+        <td>${e.anulado?'<span class="badge red">Anulado</span>':`<span class="badge ${scoreColor(e.finalScore)}">${e.finalScore}%</span>`}</td>
+      </tr>`).join('')}
+    </table>`;
+  }
+}
+
+let evalState = null; // current in-progress evaluation form state
+
+function newEvalState(){
+  return {
+    nombre:'', asesorId:null, celular:'', grupo:'', evaluador:'', fecha: todayISO(),
+    retenida: null, // true/false/null
+    aQuien: '', motivo:'', motivoDetalle:'',
+    answers:{}, faltasChecked:[], feedback:'',
+    savedId:null
+  };
+}
+
+function renderEvaluacionTopbarActions(){
+  document.getElementById('topbar-actions').innerHTML =
+    '<button class="btn btn-outline btn-sm" id="btn-nueva-eval">+ Nueva evaluación</button>';
+  document.getElementById('btn-nueva-eval').onclick = ()=>{ evalState = newEvalState(); renderEvaluacionView(); };
+  if(!evalState) evalState = newEvalState();
+  renderEvaluacionView();
+}
+
+function ringSVG(score, size){
+  size = size||86;
+  const r = (size/2)-7, c = 2*Math.PI*r, color = score>=90?'var(--green)':score>=70?'var(--amber)':'var(--red)';
+  const off = c - (Math.min(Math.max(score,0),100)/100)*c;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#EAEDF1" stroke-width="7"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round"
+      stroke-dasharray="${c}" stroke-dashoffset="${off}" transform="rotate(-90 ${size/2} ${size/2})"/>
+    <text x="50%" y="53%" text-anchor="middle" font-family="Sora,sans-serif" font-weight="800" font-size="${size*0.24}" fill="var(--text)">${Math.round(score)}%</text>
+  </svg>`;
+}
+
+function renderEvaluacionView(){
+  const groups = getGroups();
+
+  let pautaHTML = '';
+  PAUTA.forEach(cat=>{
+    pautaHTML += `<div class="pauta-cat">
+      <div class="pauta-cat-head"><span class="pauta-cat-tag">${escapeHtml(cat.cat)}</span> ${escapeHtml(cat.catLabel)} <span class="pauta-cat-peso">${cat.catPeso}%</span></div>`;
+    cat.items.forEach(item=>{
+      pautaHTML += `<div class="item-card" data-item="${item.id}">
+        <div class="item-head">
+          <div class="item-name">${escapeHtml(item.nombre)}</div>
+          <div class="item-meta"><span class="item-peso">${item.peso}%</span><span class="item-score" id="score-${item.id}">—</span></div>
+        </div>
+        <div class="sub-list">`;
+      item.sub.forEach(s=>{
+        pautaHTML += `<div class="sub-row" data-sub="${s.id}" data-item="${item.id}">
+          <div class="sub-text">${escapeHtml(s.t)}</div>
+          <div class="sub-toggle">
+            <button type="button" class="toggle-btn cumple" data-sub="${s.id}" data-val="true">Cumple</button>
+            <button type="button" class="toggle-btn nocumple" data-sub="${s.id}" data-val="false">No cumple</button>
+          </div>
+        </div>`;
+      });
+      pautaHTML += `</div></div>`;
+    });
+    pautaHTML += `</div>`;
+  });
+
+  let faltasHTML = '';
+  FALTAS_GRAVES.forEach((g,gi)=>{
+    faltasHTML += `<div class="falta-group"><div class="falta-group-title">${escapeHtml(g.cat)}</div>`;
+    g.items.forEach((txt,ii)=>{
+      const fid = 'fg_'+gi+'_'+ii;
+      faltasHTML += `<label class="falta-row"><input type="checkbox" class="falta-check" data-fid="${fid}" data-txt="${escapeHtml(txt)}"> <span>${escapeHtml(txt)}</span></label>`;
+    });
+    faltasHTML += `</div>`;
+  });
+
+  document.getElementById('view-evaluacion').innerHTML = `
+  <style>
+    .pauta-cat{margin-bottom:18px;}
+    .pauta-cat-head{font-family:var(--font-display);font-weight:700;font-size:13.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px;color:var(--navy-2);}
+    .pauta-cat-tag{font-family:var(--font-mono);font-size:10px;background:var(--blue-soft);color:var(--blue);padding:2px 7px;border-radius:5px;}
+    .pauta-cat-peso{margin-left:auto;color:var(--text-faint);font-weight:600;font-size:12px;}
+    .item-card{background:#FAFBFC;border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 14px;margin-bottom:10px;}
+    .item-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+    .item-name{font-weight:700;font-size:13px;}
+    .item-meta{display:flex;align-items:center;gap:10px;}
+    .item-peso{font-family:var(--font-mono);font-size:11px;color:var(--text-faint);}
+    .item-score{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:#EEF1F4;color:var(--text-soft);}
+    .item-score.ok{background:var(--green-soft);color:var(--green);}
+    .item-score.bad{background:var(--red-soft);color:var(--red);}
+    .sub-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px dashed #E6E9ED;}
+    .sub-row:first-child{border-top:none;}
+    .sub-text{font-size:12.5px;color:var(--text);flex:1;}
+    .sub-toggle{display:flex;gap:6px;flex-shrink:0;}
+    .toggle-btn{font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:99px;border:1px solid var(--border);background:#fff;color:var(--text-soft);}
+    .toggle-btn.cumple.active{background:var(--green);border-color:var(--green);color:#fff;}
+    .toggle-btn.nocumple.active{background:var(--red);border-color:var(--red);color:#fff;}
+    .falta-group{margin-bottom:12px;}
+    .falta-group-title{font-weight:700;font-size:12.5px;color:var(--red);margin-bottom:6px;}
+    .falta-row{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;padding:5px 0;color:var(--text);cursor:pointer;}
+    .falta-row input{margin-top:2px;accent-color:var(--red);}
+    .retencion-opt{display:flex;gap:8px;margin-bottom:10px;}
+    .retencion-opt button{flex:1;padding:9px;border-radius:var(--radius-sm);border:1px solid var(--border);background:#fff;font-weight:600;font-size:13px;}
+    .retencion-opt button.active.ret{background:var(--green-soft);border-color:var(--green);color:var(--green);}
+    .retencion-opt button.active.noret{background:var(--red-soft);border-color:var(--red);color:var(--red);}
+    .aquien-opt{display:flex;gap:7px;margin-bottom:10px;}
+    .aquien-opt button{flex:1;padding:7px;border-radius:99px;border:1px solid var(--border);background:#fff;font-weight:600;font-size:12px;}
+    .aquien-opt button.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+    .sticky-summary{position:sticky;top:78px;}
+    .summary-top{display:flex;align-items:center;gap:14px;padding:6px 0 14px;border-bottom:1px solid var(--border);margin-bottom:14px;}
+    .summary-stat{font-size:12px;color:var(--text-soft);}
+    .summary-stat b{display:block;font-family:var(--font-display);font-size:16px;color:var(--text);}
+    .anulado-banner{background:var(--red);color:#fff;padding:12px 14px;border-radius:var(--radius-sm);font-weight:700;font-size:13px;margin-bottom:14px;text-align:center;}
+    .suggest-box{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow);max-height:220px;overflow-y:auto;z-index:40;display:none;}
+    .suggest-box.show{display:block;}
+    .suggest-item{padding:8px 11px;cursor:pointer;font-size:12.5px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+    .suggest-item:hover,.suggest-item.hl{background:var(--blue-soft);}
+    .suggest-item .s-name{font-weight:600;color:var(--text);}
+    .suggest-item .s-grupo{color:var(--text-faint);font-size:11px;flex-shrink:0;}
+  </style>
+  <div class="two-col">
+    <div>
+      <div class="card panel">
+        <div class="panel-head"><h3>Datos generales</h3></div>
+        <div class="field-row">
+          <div class="field" style="position:relative;"><label>Nombre del asesor</label>
+            <input id="f-nombre" autocomplete="off" value="${escapeHtml(evalState.nombre)}" placeholder="Escribe para buscar...">
+            <div id="nombre-suggestions" class="suggest-box"></div>
+          </div>
+          <div class="field"><label>Celular</label><input id="f-celular" value="${escapeHtml(evalState.celular)}" placeholder="9XXXXXXXX"></div>
+          <div class="field"><label>Fecha de evaluación</label><input type="date" id="f-fecha" value="${evalState.fecha}"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Grupo</label>
+            <input id="f-grupo" list="grupos-list" value="${escapeHtml(evalState.grupo)}" placeholder="Selecciona o escribe un grupo">
+            <datalist id="grupos-list">${groups.map(g=>`<option value="${escapeHtml(g)}">`).join('')}</datalist>
+          </div>
+          <div class="field"><label>Evaluador</label><input id="f-evaluador" list="evaluadores-list" value="${escapeHtml(evalState.evaluador)}" placeholder="¿Quién evalúa?">
+            <datalist id="evaluadores-list">${[...new Set(evaluaciones.map(e=>e.evaluador).filter(Boolean))].map(e=>`<option value="${escapeHtml(e)}">`).join('')}</datalist>
+          </div>
+          <div></div>
+        </div>
+      </div>
+
+      <div class="card panel">
+        <div class="panel-head"><h3>Desglose por sub-ítem</h3><span class="hint">Si un sub-ítem no cumple, el ítem completo vale 0%</span></div>
+        ${pautaHTML}
+      </div>
+
+      <div class="card panel">
+        <div class="panel-head"><h3 style="color:var(--red);">Faltas graves</h3><span class="hint">Marcar solo si ocurrió. Cualquier marca anula el examen.</span></div>
+        ${faltasHTML}
+      </div>
+
+      <div class="card panel">
+        <div class="panel-head"><h3>Resultado de la llamada</h3></div>
+        <div class="retencion-opt">
+          <button type="button" id="btn-ret-si" class="${evalState.retenida===true?'active ret':''}">✓ Retenida</button>
+          <button type="button" id="btn-ret-no" class="${evalState.retenida===false?'active noret':''}">✕ No retenida</button>
+        </div>
+        <div id="noretenida-block" style="display:${evalState.retenida===false?'block':'none'}">
+          <label style="font-size:12px;font-weight:600;color:var(--text-soft);display:block;margin-bottom:6px;">¿A qué se debe?</label>
+          <div class="aquien-opt">
+            <button type="button" data-aq="Agente" class="${evalState.aQuien==='Agente'?'active':''}">Agente</button>
+            <button type="button" data-aq="Cliente" class="${evalState.aQuien==='Cliente'?'active':''}">Cliente</button>
+            <button type="button" data-aq="Proceso" class="${evalState.aQuien==='Proceso'?'active':''}">Proceso</button>
+          </div>
+          <div class="field"><label>Motivo de no retención</label>
+            <select id="f-motivo">
+              <option value="">Selecciona un motivo...</option>
+              ${(MOTIVO_OPTIONS[evalState.aQuien]||[]).map(m=>`<option value="${escapeHtml(m)}" ${evalState.motivo===m?'selected':''}>${escapeHtml(m)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field" id="motivo-detalle-field" style="display:${/OTROS/i.test(evalState.motivo||'')?'block':'none'};">
+            <label>Detalle adicional</label>
+            <textarea id="f-motivo-detalle" placeholder="Describe el motivo específico...">${escapeHtml(evalState.motivoDetalle||'')}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card panel">
+        <div class="panel-head"><h3>Feedback y/o recomendación</h3></div>
+        <textarea id="f-feedback" style="min-height:90px;" placeholder="Escribe el feedback para el asesor...">${escapeHtml(evalState.feedback)}</textarea>
+      </div>
+    </div>
+
+    <div>
+      <div class="card panel sticky-summary">
+        <div id="anulado-banner-holder"></div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div id="ring-holder">${ringSVG(0)}</div>
+          <div>
+            <div class="kpi-label">Nota final</div>
+            <div id="estado-texto" style="font-size:12.5px;color:var(--text-faint);margin-top:4px;">Completa la pauta para calcular</div>
+          </div>
+        </div>
+        <div class="summary-top" style="margin-top:14px;">
+          <div class="summary-stat">Ítems<b id="sum-items">0/${PAUTA.reduce((s,c)=>s+c.items.length,0)}</b></div>
+          <div class="summary-stat">Faltas marcadas<b id="sum-faltas">0</b></div>
+        </div>
+        <button class="btn btn-primary" id="btn-guardar" style="width:100%;justify-content:center;margin-bottom:8px;">Guardar evaluación</button>
+        <button class="btn btn-outline" id="btn-pdf" style="width:100%;justify-content:center;margin-bottom:8px;">Generar PDF</button>
+        <button class="btn btn-dark" id="btn-nueva-eval-2" style="width:100%;justify-content:center;">+ Nueva evaluación</button>
+      </div>
+    </div>
+  </div>`;
+
+  // ---- restore visual state from evalState.answers/faltasChecked ----
+  Object.keys(evalState.answers).forEach(subId=>{
+    const val = evalState.answers[subId];
+    const btn = document.querySelector(`.toggle-btn[data-sub="${subId}"][data-val="${val}"]`);
+    if(btn) btn.classList.add('active');
+  });
+  evalState.faltasChecked.forEach(fid=>{
+    const cb = document.querySelector(`.falta-check[data-fid="${fid}"]`);
+    if(cb) cb.checked = true;
+  });
+
+  bindEvaluacionEvents();
+  recalcEvaluacion();
+}
+
+function bindNombreAutocomplete(){
+  const input = document.getElementById('f-nombre');
+  const box = document.getElementById('nombre-suggestions');
+  if(!input || !box) return;
+  function selectAsesor(a){
+    input.value = a.nombre;
+    evalState.nombre = a.nombre;
+    evalState.asesorId = a.id;
+    document.getElementById('f-celular').value = a.telefono||'';
+    document.getElementById('f-grupo').value = a.grupo||'';
+    evalState.celular = a.telefono||'';
+    evalState.grupo = a.grupo||'';
+    box.classList.remove('show'); box.innerHTML='';
+  }
+  function showMatches(){
+    const q = input.value.trim().toLowerCase();
+    let list = q ? asesores.filter(a=>a.nombre.toLowerCase().includes(q)) : asesores;
+    list = list.slice(0,8);
+    if(!list.length){ box.classList.remove('show'); box.innerHTML=''; return; }
+    box.innerHTML = list.map(a=>`<div class="suggest-item" data-id="${a.id}"><span class="s-name">${escapeHtml(a.nombre)}</span><span class="s-grupo">${escapeHtml(a.grupo||'Sin grupo')}</span></div>`).join('');
+    box.classList.add('show');
+    box.querySelectorAll('.suggest-item').forEach(item=>{
+      item.addEventListener('mousedown', e=>{
+        e.preventDefault();
+        const a = asesores.find(x=>x.id===item.dataset.id);
+        if(a) selectAsesor(a);
+      });
+    });
+  }
+  input.addEventListener('focus', showMatches);
+  input.addEventListener('input', showMatches);
+  input.addEventListener('blur', ()=>{ setTimeout(()=>box.classList.remove('show'), 120); });
+}
+
+function bindEvaluacionEvents(){
+  const view = document.getElementById('view-evaluacion');
+  view.querySelectorAll('input,textarea,select').forEach(el=>{
+    const evt = el.tagName==='SELECT' ? 'change' : 'input';
+    el.addEventListener(evt, ()=>{
+      evalState.nombre = document.getElementById('f-nombre').value;
+      evalState.celular = document.getElementById('f-celular').value;
+      evalState.fecha = document.getElementById('f-fecha').value;
+      evalState.grupo = document.getElementById('f-grupo').value;
+      evalState.evaluador = document.getElementById('f-evaluador').value;
+      const motivoEl = document.getElementById('f-motivo');
+      if(motivoEl){
+        evalState.motivo = motivoEl.value;
+        const detalleField = document.getElementById('motivo-detalle-field');
+        if(detalleField) detalleField.style.display = /OTROS/i.test(evalState.motivo) ? 'block' : 'none';
+      }
+      const detalleEl = document.getElementById('f-motivo-detalle');
+      if(detalleEl) evalState.motivoDetalle = detalleEl.value;
+      evalState.feedback = document.getElementById('f-feedback').value;
+    });
+  });
+  document.getElementById('f-nombre').addEventListener('change', ()=>{
+    const a = findAsesorByName(document.getElementById('f-nombre').value);
+    if(a){
+      evalState.asesorId = a.id;
+      if(!evalState.celular) document.getElementById('f-celular').value = a.telefono||'';
+      if(!evalState.grupo) document.getElementById('f-grupo').value = a.grupo||'';
+      evalState.celular = document.getElementById('f-celular').value;
+      evalState.grupo = document.getElementById('f-grupo').value;
+    } else { evalState.asesorId = null; }
+  });
+
+  document.getElementById('btn-ret-si').onclick = ()=>{ evalState.retenida = true; renderEvaluacionView(); };
+  document.getElementById('btn-ret-no').onclick = ()=>{ evalState.retenida = false; renderEvaluacionView(); };
+
+  view.querySelectorAll('.aquien-opt button').forEach(b=>{
+    b.onclick = ()=>{
+      if(evalState.aQuien !== b.dataset.aq){ evalState.motivo=''; evalState.motivoDetalle=''; }
+      evalState.aQuien = b.dataset.aq;
+      renderEvaluacionView();
+    };
+  });
+
+  view.querySelectorAll('.toggle-btn').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const sub = b.dataset.sub, val = b.dataset.val==='true';
+      evalState.answers[sub] = val;
+      const row = b.closest('.sub-row');
+      row.querySelectorAll('.toggle-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      recalcEvaluacion();
+    });
+  });
+
+  view.querySelectorAll('.falta-check').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const fid = cb.dataset.fid;
+      evalState.faltasChecked = evalState.faltasChecked.filter(x=>x!==fid);
+      if(cb.checked) evalState.faltasChecked.push(fid);
+      recalcEvaluacion();
+    });
+  });
+
+  document.getElementById('btn-guardar').onclick = guardarEvaluacion;
+  document.getElementById('btn-pdf').onclick = ()=>generarPDFEvaluacion();
+  document.getElementById('btn-nueva-eval-2').onclick = ()=>{
+    if(confirm('¿Borrar todo y comenzar una nueva evaluación?')){ evalState = newEvalState(); renderEvaluacionView(); }
+  };
+  bindNombreAutocomplete();
+}
+
+function recalcEvaluacion(){
+  const r = computeResultado(evalState.answers, evalState.faltasChecked);
+  let itemsDone = 0;
+  PAUTA.forEach(cat=>cat.items.forEach(item=>{
+    const res = r.items[item.id];
+    const el = document.getElementById('score-'+item.id);
+    if(!el) return;
+    if(!res || !res.complete){ el.textContent='—'; el.className='item-score'; }
+    else{
+      itemsDone++;
+      el.textContent = res.cumple ? item.peso+'%' : '0%';
+      el.className = 'item-score ' + (res.cumple?'ok':'bad');
+    }
+  }));
+  document.getElementById('sum-items').textContent = itemsDone+'/'+PAUTA.reduce((s,c)=>s+c.items.length,0);
+  document.getElementById('sum-faltas').textContent = evalState.faltasChecked.length;
+  document.getElementById('ring-holder').innerHTML = ringSVG(r.anulado?0:r.finalScore);
+  const banner = document.getElementById('anulado-banner-holder');
+  const estado = document.getElementById('estado-texto');
+  if(r.anulado){
+    banner.innerHTML = '<div class="anulado-banner">⚠ EXAMEN ANULADO — Falta grave detectada</div>';
+    estado.textContent = 'La nota se fija en 0% por falta grave.';
+  } else {
+    banner.innerHTML = '';
+    estado.textContent = r.allComplete ? 'Evaluación completa.' : 'Faltan sub-ítems por calificar.';
+  }
+  evalState._result = r;
+}
+
+async function guardarEvaluacion(){
+  if(!evalState.nombre){ alert('Ingresa el nombre del asesor.'); return; }
+  if(!evalState.evaluador){ alert('Ingresa quién realiza la evaluación.'); return; }
+  if(evalState.retenida===null){ alert('Indica si la llamada fue retenida o no.'); return; }
+  if(evalState.retenida===false){
+    if(!evalState.aQuien){ alert('Indica a qué se debe la no retención (Agente / Cliente / Proceso).'); return; }
+    if(!evalState.motivo){ alert('Selecciona el motivo de no retención.'); return; }
+  }
+  const r = evalState._result || computeResultado(evalState.answers, evalState.faltasChecked);
+  if(!r.anulado && !r.allComplete){
+    if(!confirm('Hay sub-ítems sin calificar (se contarán como 0%). ¿Guardar de todas formas?')) return;
+  }
+  const id = evalState.savedId || uid('ev');
+  const record = {
+    id, nombre: evalState.nombre, asesorId: evalState.asesorId, celular: evalState.celular,
+    grupo: evalState.grupo, evaluador: evalState.evaluador, fecha: evalState.fecha,
+    retenida: evalState.retenida, aQuien: evalState.aQuien, motivo: evalState.motivo, motivoDetalle: evalState.motivoDetalle,
+    answers: {...evalState.answers}, faltasChecked: [...evalState.faltasChecked],
+    faltasTexto: evalState.faltasChecked.map(fid=>{const cb=document.querySelector(`.falta-check[data-fid="${fid}"]`); return cb?cb.dataset.txt:fid;}),
+    feedback: evalState.feedback, anulado: r.anulado, finalScore: r.anulado?0:r.finalScore,
+    itemResults: r.items, createdAt: new Date().toISOString()
+  };
+  const idx = evaluaciones.findIndex(e=>e.id===id);
+  if(idx>=0) evaluaciones[idx]=record; else evaluaciones.push(record);
+  evalState.savedId = id;
+  await persistEvaluaciones();
+  alert('Evaluación guardada correctamente.');
+}
+
+function buildPdfHTML(record){
+  const r = record;
+  let itemsRows = '';
+  PAUTA.forEach(cat=>{
+    cat.items.forEach(item=>{
+      const res = r.itemResults ? r.itemResults[item.id] : null;
+      const cumple = res ? res.cumple : null;
+      itemsRows += `<tr>
+        <td style="padding:6px 8px;border-bottom:1px solid #E6E9ED;font-size:11px;color:#646E7C;">${escapeHtml(cat.cat)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #E6E9ED;font-size:11.5px;">${escapeHtml(item.nombre)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #E6E9ED;font-size:11.5px;text-align:center;">${item.peso}%</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #E6E9ED;font-size:11.5px;text-align:center;">
+          ${cumple===null?'<span style="color:#9BA4B0;">Sin calificar</span>':cumple?'<span style="color:#1E8E5A;font-weight:700;">Cumple</span>':'<span style="color:#C0392B;font-weight:700;">No cumple</span>'}
+        </td>
+        <td style="padding:6px 8px;border-bottom:1px solid #E6E9ED;font-size:11.5px;text-align:center;font-weight:700;">${cumple?item.peso:0}%</td>
+      </tr>`;
+    });
+  });
+
+  const retenidaHTML = r.retenida
+    ? `<span style="color:#1E8E5A;font-weight:700;">RETENIDA</span>`
+    : `<span style="color:#C0392B;font-weight:700;">NO RETENIDA</span> — atribuido a <b>${escapeHtml(r.aQuien||'—')}</b><div style="margin-top:4px;color:#646E7C;">${escapeHtml(r.motivo||'—')}${r.motivoDetalle?' — '+escapeHtml(r.motivoDetalle):''}</div>`;
+
+  const faltasHTML = (r.faltasTexto && r.faltasTexto.length)
+    ? `<ul style="margin:6px 0 0 18px;padding:0;font-size:11.5px;color:#C0392B;">${r.faltasTexto.map(t=>`<li style="margin-bottom:3px;">${escapeHtml(t)}</li>`).join('')}</ul>`
+    : '';
+
+  return `
+  <div style="font-family:Inter,Arial,sans-serif;color:#1B232E;padding:34px 38px;width:684px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #13233A;padding-bottom:14px;margin-bottom:18px;">
+      <div>
+        <div style="font-family:Sora,Arial,sans-serif;font-weight:800;font-size:19px;color:#13233A;">Informe de Evaluación de Calidad</div>
+        <div style="font-size:11.5px;color:#646E7C;margin-top:2px;">Programa de Retención</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:34px;font-weight:700;color:${r.anulado?'#C0392B':(r.finalScore>=90?'#1E8E5A':r.finalScore>=70?'#C8862A':'#C0392B')};">${r.anulado?'0%':r.finalScore+'%'}</div>
+        <div style="font-size:10.5px;color:#9BA4B0;text-transform:uppercase;letter-spacing:.4px;">Nota final</div>
+      </div>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      <tr>
+        <td style="padding:4px 0;font-size:11px;color:#9BA4B0;width:25%;">Asesor</td><td style="padding:4px 0;font-size:12.5px;font-weight:600;width:25%;">${escapeHtml(r.nombre||'—')}</td>
+        <td style="padding:4px 0;font-size:11px;color:#9BA4B0;width:25%;">Celular</td><td style="padding:4px 0;font-size:12.5px;font-weight:600;width:25%;">${escapeHtml(r.celular||'—')}</td>
+      </tr>
+      <tr>
+        <td style="padding:4px 0;font-size:11px;color:#9BA4B0;">Fecha</td><td style="padding:4px 0;font-size:12.5px;font-weight:600;">${fmtDate(r.fecha)}</td>
+        <td style="padding:4px 0;font-size:11px;color:#9BA4B0;">Grupo</td><td style="padding:4px 0;font-size:12.5px;font-weight:600;">${escapeHtml(r.grupo||'—')}</td>
+      </tr>
+      <tr><td style="padding:4px 0;font-size:11px;color:#9BA4B0;">Evaluador</td><td style="padding:4px 0;font-size:12.5px;font-weight:600;" colspan="3">${escapeHtml(r.evaluador||'—')}</td></tr>
+    </table>
+
+    <div style="background:#F3F5F8;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;">
+      <div style="font-size:10.5px;color:#9BA4B0;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;">Resultado de la llamada</div>
+      ${retenidaHTML}
+    </div>
+
+    ${r.anulado ? `
+    <div style="background:#FBEAE9;border:1px solid #C0392B;border-radius:8px;padding:12px 14px;margin-bottom:16px;">
+      <div style="color:#C0392B;font-weight:800;font-size:13px;margin-bottom:4px;">⚠ EXAMEN ANULADO POR FALTA GRAVE</div>
+      ${faltasHTML}
+    </div>` : `
+    <div style="font-size:11px;color:#9BA4B0;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Desglose por sub-ítem</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      <tr>
+        <th style="text-align:left;padding:6px 8px;font-size:10px;color:#9BA4B0;text-transform:uppercase;border-bottom:2px solid #E1E5EB;">Pto.</th>
+        <th style="text-align:left;padding:6px 8px;font-size:10px;color:#9BA4B0;text-transform:uppercase;border-bottom:2px solid #E1E5EB;">Ítem</th>
+        <th style="text-align:center;padding:6px 8px;font-size:10px;color:#9BA4B0;text-transform:uppercase;border-bottom:2px solid #E1E5EB;">Peso</th>
+        <th style="text-align:center;padding:6px 8px;font-size:10px;color:#9BA4B0;text-transform:uppercase;border-bottom:2px solid #E1E5EB;">Resultado</th>
+        <th style="text-align:center;padding:6px 8px;font-size:10px;color:#9BA4B0;text-transform:uppercase;border-bottom:2px solid #E1E5EB;">Puntaje</th>
+      </tr>
+      ${itemsRows}
+    </table>`}
+
+    <div style="font-size:11px;color:#9BA4B0;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;">Feedback y/o recomendación</div>
+    <div style="font-size:12px;line-height:1.5;background:#F3F5F8;border-radius:8px;padding:10px 14px;min-height:40px;">${escapeHtml(r.feedback)||'<span style="color:#9BA4B0;">Sin observaciones registradas.</span>'}</div>
+
+    <div style="margin-top:24px;border-top:1px solid #E1E5EB;padding-top:8px;font-size:10px;color:#9BA4B0;display:flex;justify-content:space-between;">
+      <span>Generado el ${new Date().toLocaleString('es-PE')}</span>
+      <span>Control de Calidad · Retención</span>
+    </div>
+  </div>`;
+}
+
+function generarPDFEvaluacion(){
+  const r = evalState._result || computeResultado(evalState.answers, evalState.faltasChecked);
+  const record = {
+    nombre: evalState.nombre, celular: evalState.celular, grupo: evalState.grupo, evaluador: evalState.evaluador,
+    fecha: evalState.fecha, retenida: evalState.retenida, aQuien: evalState.aQuien, motivo: evalState.motivo, motivoDetalle: evalState.motivoDetalle,
+    feedback: evalState.feedback, anulado: r.anulado, finalScore: r.finalScore, itemResults: r.items,
+    faltasTexto: evalState.faltasChecked.map(fid=>{const cb=document.querySelector(`.falta-check[data-fid="${fid}"]`); return cb?cb.dataset.txt:fid;})
+  };
+  const root = document.getElementById('pdf-root');
+  const content = document.getElementById('pdf-content');
+  const overlay = document.getElementById('pdf-loading-overlay');
+  content.innerHTML = buildPdfHTML(record);
+  root.style.display = 'block';
+  overlay.style.display = 'flex';
+  const btn = document.getElementById('btn-pdf');
+  const oldLabel = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Generando PDF…'; }
+
+  const opt = {
+    margin:0, filename:`evaluacion_${(record.nombre||'asesor').replace(/\s+/g,'_')}_${record.fecha}.pdf`,
+    image:{type:'jpeg', quality:0.98},
+    html2canvas:{scale:2, backgroundColor:'#ffffff', useCORS:true, windowWidth:content.scrollWidth},
+    jsPDF:{unit:'pt', format:'a4', orientation:'portrait'}
+  };
+
+  const fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+  const cleanup = ()=>{
+    root.style.display = 'none';
+    overlay.style.display = 'none';
+    content.innerHTML = '';
+    if(btn){ btn.disabled = false; btn.textContent = oldLabel; }
+  };
+
+  fontsReady
+    .then(()=> new Promise(res=>setTimeout(res, 150))) // let layout settle after display:block
+    .then(()=> html2pdf().from(content).set(opt).save())
+    .catch(err=>{ console.error('PDF error', err); alert('Ocurrió un error generando el PDF. Inténtalo de nuevo.'); })
+    .finally(cleanup);
+}
+
+/* ============================== MÓDULO 3: PERFILES ============================== */
+let perfilSeleccionado = null;
+let chartPerfil = null;
+
+function evalsDeAsesor(asesor){
+  return evaluaciones.filter(e => (asesor.id && e.asesorId===asesor.id) || (!e.asesorId && e.nombre.trim().toLowerCase()===asesor.nombre.trim().toLowerCase()));
+}
+function avgOf(list){ const v=list.filter(e=>!e.anulado); return v.length? v.reduce((s,e)=>s+e.finalScore,0)/v.length : null; }
+
+function renderPerfiles(){
+  document.getElementById('topbar-actions').innerHTML = `<input id="perfil-search" class="field" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:220px;" placeholder="Buscar asesor...">`;
+  document.getElementById('view-perfiles').innerHTML = `
+    <div class="two-col" style="grid-template-columns:340px 1fr;">
+      <div class="card panel" style="max-height:74vh;overflow:auto;">
+        <div class="panel-head"><h3>Asesores</h3><span class="hint">${asesores.length} en total</span></div>
+        <div id="perfil-list"></div>
+      </div>
+      <div id="perfil-detail"></div>
+    </div>`;
+  document.getElementById('perfil-search').addEventListener('input', e=>renderPerfilList(e.target.value));
+  renderPerfilList('');
+  if(asesores.length){
+    perfilSeleccionado = perfilSeleccionado && asesores.find(a=>a.id===perfilSeleccionado.id) || asesores[0];
+    renderPerfilDetail(perfilSeleccionado);
+  } else {
+    document.getElementById('perfil-detail').innerHTML = `<div class="card panel empty">No hay asesores registrados aún.<br>Agrégalos desde el módulo <b>Base de datos</b> o importa un Excel.</div>`;
+  }
+}
+
+function renderPerfilList(filter){
+  const f = (filter||'').toLowerCase();
+  const list = asesores.filter(a=>a.nombre.toLowerCase().includes(f) || (a.grupo||'').toLowerCase().includes(f));
+  document.getElementById('perfil-list').innerHTML = list.length ? list.map(a=>{
+    const avg = avgOf(evalsDeAsesor(a));
+    const active = perfilSeleccionado && perfilSeleccionado.id===a.id;
+    return `<div class="perfil-item" data-id="${a.id}" style="display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:8px;cursor:pointer;${active?'background:var(--blue-soft);':''}">
+      <div style="width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials(a.nombre)}</div>
+      <div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(a.nombre)}</div><div style="font-size:11px;color:var(--text-faint);">${escapeHtml(a.grupo||'Sin grupo')}</div></div>
+      ${avg!==null?`<span class="badge ${scoreColor(avg)}">${avg.toFixed(0)}%</span>`:''}
+    </div>`;
+  }).join('') : '<div class="empty">Sin resultados.</div>';
+  document.querySelectorAll('.perfil-item').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      perfilSeleccionado = asesores.find(a=>a.id===el.dataset.id);
+      renderPerfilList(document.getElementById('perfil-search').value);
+      renderPerfilDetail(perfilSeleccionado);
+    });
+  });
+}
+
+function renderPerfilDetail(a){
+  const evs = evalsDeAsesor(a).sort((x,y)=>new Date(x.fecha)-new Date(y.fecha));
+  const semanaEvs = evs.filter(e=>isInCurrentWeek(e.fecha));
+  const mesEvs = evs.filter(e=>isInCurrentMonth(e.fecha));
+  const avgSemana = avgOf(semanaEvs), avgMes = avgOf(mesEvs), avgGeneral = avgOf(evs);
+
+  const now = new Date();
+  const mesAnteriorEvs = evs.filter(e=>{
+    const d=new Date(e.fecha); const m=new Date(now.getFullYear(), now.getMonth()-1,1);
+    return d.getMonth()===m.getMonth() && d.getFullYear()===m.getFullYear();
+  });
+  const avgMesAnterior = avgOf(mesAnteriorEvs);
+  let avance = null;
+  if(avgMes!==null && avgMesAnterior!==null) avance = avgMes - avgMesAnterior;
+
+  const retenidas = evs.filter(e=>e.retenida===true).length;
+  const noRetenidas = evs.filter(e=>e.retenida===false).length;
+
+  document.getElementById('perfil-detail').innerHTML = `
+    <div class="card panel">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div style="width:58px;height:58px;border-radius:50%;background:var(--navy);color:#fff;font-weight:700;font-size:19px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials(a.nombre)}</div>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-family:var(--font-display);font-weight:700;font-size:17px;">${escapeHtml(a.nombre)}</div>
+          <div style="font-size:12.5px;color:var(--text-soft);margin-top:2px;">${escapeHtml(a.grupo||'Sin grupo')} · DNI ${escapeHtml(a.dni||'—')}</div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:var(--text-soft);">
+          <div>${escapeHtml(a.telefono||'—')}</div><div>${escapeHtml(a.correo||'—')}</div>
+        </div>
+      </div>
+    </div>
+    <div class="cards-row" style="grid-template-columns:repeat(4,1fr);">
+      <div class="card kpi"><div class="kpi-label">Promedio semanal</div><div class="kpi-value">${avgSemana!==null?avgSemana.toFixed(1)+'%':'—'}</div><div class="kpi-foot">${semanaEvs.length} evaluación(es)</div></div>
+      <div class="card kpi blue"><div class="kpi-label">Promedio mensual</div><div class="kpi-value">${avgMes!==null?avgMes.toFixed(1)+'%':'—'}</div><div class="kpi-foot">${mesEvs.length} evaluación(es)</div></div>
+      <div class="card kpi ${avance===null?'':avance>=0?'green':'red'}"><div class="kpi-label">Avance vs. mes anterior</div><div class="kpi-value">${avance===null?'—':(avance>=0?'+':'')+avance.toFixed(1)+'%'}</div><div class="kpi-foot">Variación de promedio</div></div>
+      <div class="card kpi"><div class="kpi-label">Retención</div><div class="kpi-value">${retenidas}/${retenidas+noRetenidas}</div><div class="kpi-foot">Llamadas retenidas</div></div>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Histórico de notas</h3></div>
+      ${evs.length ? '<canvas id="chart-perfil" height="80"></canvas>' : '<div class="empty">Este asesor aún no tiene evaluaciones registradas.</div>'}
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Evaluaciones</h3></div>
+      ${evs.length ? `<table><tr><th>Fecha</th><th>Evaluador</th><th>Retención</th><th>Nota</th></tr>
+        ${[...evs].reverse().map(e=>`<tr><td>${fmtDate(e.fecha)}</td><td>${escapeHtml(e.evaluador||'—')}</td>
+        <td>${e.retenida===true?'<span class="badge green">Retenida</span>':e.retenida===false?'<span class="badge red">No retenida</span>':'—'}</td>
+        <td>${e.anulado?'<span class="badge red">Anulado</span>':`<span class="badge ${scoreColor(e.finalScore)}">${e.finalScore}%</span>`}</td></tr>`).join('')}
+      </table>` : '<div class="empty">Sin evaluaciones.</div>'}
+    </div>
+  `;
+  if(evs.length){
+    if(chartPerfil) chartPerfil.destroy();
+    chartPerfil = new Chart(document.getElementById('chart-perfil'), {
+      type:'line',
+      data:{ labels: evs.map(e=>fmtDate(e.fecha)), datasets:[{ data: evs.map(e=>e.anulado?0:e.finalScore), borderColor:'#2E6DA4', backgroundColor:'rgba(46,109,164,.1)', fill:true, tension:.3, pointRadius:3 }]},
+      options:{ plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true, max:100, grid:{color:'#EEF1F4'} }, x:{grid:{display:false}} } }
+    });
+  }
+}
+
+/* ============================== MÓDULO 4: BASE DE DATOS ============================== */
+function renderBaseDatos(){
+  document.getElementById('topbar-actions').innerHTML = `
+    <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" style="display:none;">
+    <button class="btn btn-outline btn-sm" id="btn-importar">Importar Excel</button>
+    <button class="btn btn-outline btn-sm" id="btn-exportar" style="margin-left:8px;">Exportar Excel</button>
+    <button class="btn btn-primary btn-sm" id="btn-agregar" style="margin-left:8px;">+ Agregar asesor</button>
+  `;
+  const groups = getGroups();
+  let groupsHTML = '';
+  const sinGrupo = asesores.filter(a=>!a.grupo);
+  const renderGroupTable = (label, list) => `
+    <div class="card panel">
+      <div class="panel-head"><h3>${escapeHtml(label)}</h3><span class="hint">${list.length} asesor(es)</span></div>
+      ${list.length ? `<table><tr><th>Nombre</th><th>DNI</th><th>Teléfono</th><th>Correo</th><th></th></tr>
+        ${list.map(a=>`<tr>
+          <td>${escapeHtml(a.nombre)}</td><td>${escapeHtml(a.dni||'—')}</td><td>${escapeHtml(a.telefono||'—')}</td><td>${escapeHtml(a.correo||'—')}</td>
+          <td style="text-align:right;white-space:nowrap;">
+            <button class="btn btn-outline btn-sm edit-asesor" data-id="${a.id}">Editar</button>
+            <button class="btn btn-danger-outline btn-sm del-asesor" data-id="${a.id}" style="margin-left:6px;">Eliminar</button>
+          </td>
+        </tr>`).join('')}
+      </table>` : '<div class="empty">Sin asesores en este grupo.</div>'}
+    </div>`;
+
+  groups.forEach(g=>{ groupsHTML += renderGroupTable(g, asesores.filter(a=>a.grupo===g)); });
+  if(sinGrupo.length) groupsHTML += renderGroupTable('Sin grupo asignado', sinGrupo);
+  if(!asesores.length) groupsHTML = `<div class="card panel empty">Aún no hay asesores. Importa un Excel o agrega uno manualmente.<br><span style="font-size:11.5px;">Columnas esperadas: Nombre, DNI, Teléfono, Correo, Grupo</span></div>`;
+
+  document.getElementById('view-basedatos').innerHTML = `
+    <div class="card panel" style="background:var(--blue-soft);border-color:#CFE2F3;">
+      <div style="font-size:12.5px;color:var(--navy-2);"><b>Formato de Excel esperado:</b> columnas <code>Nombre</code>, <code>DNI</code>, <code>Teléfono</code>, <code>Correo</code>, <code>Grupo</code> (el orden no importa, los acentos y mayúsculas no afectan).</div>
+    </div>
+    ${groupsHTML}
+  `;
+
+  document.getElementById('btn-importar').onclick = ()=>document.getElementById('excel-input').click();
+  document.getElementById('excel-input').addEventListener('change', handleExcelImport);
+  document.getElementById('btn-exportar').onclick = exportAsesoresExcel;
+  document.getElementById('btn-agregar').onclick = ()=>openAsesorModal(null);
+  document.querySelectorAll('.edit-asesor').forEach(b=>b.onclick=()=>openAsesorModal(asesores.find(a=>a.id===b.dataset.id)));
+  document.querySelectorAll('.del-asesor').forEach(b=>b.onclick=()=>deleteAsesor(b.dataset.id));
+}
+
+function normalizeHeader(h){
+  return String(h||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+function handleExcelImport(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev)=>{
+    try{
+      const wb = XLSX.read(ev.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+      let imported=0, updated=0;
+      rows.forEach(row=>{
+        const map = {};
+        Object.keys(row).forEach(k=>{ map[normalizeHeader(k)] = row[k]; });
+        const nombre = String(map['nombre']||map['asesor']||'').trim();
+        if(!nombre) return;
+        const dni = String(map['dni']||'').trim();
+        const telefono = String(map['telefono']||map['celular']||'').trim();
+        const correo = String(map['correo']||map['email']||map['correo electronico']||'').trim();
+        const grupo = String(map['grupo']||map['equipo']||'').trim();
+        let existing = dni ? asesores.find(a=>a.dni && a.dni===dni) : findAsesorByName(nombre);
+        if(existing){
+          existing.nombre=nombre||existing.nombre; existing.dni=dni||existing.dni;
+          existing.telefono=telefono||existing.telefono; existing.correo=correo||existing.correo; existing.grupo=grupo||existing.grupo;
+          updated++;
+        } else {
+          asesores.push({id:uid('as'), nombre, dni, telefono, correo, grupo});
+          imported++;
+        }
+      });
+      await persistAsesores();
+      renderBaseDatos();
+      alert(`Importación completa: ${imported} nuevo(s), ${updated} actualizado(s).`);
+    }catch(err){
+      console.error(err);
+      alert('No se pudo leer el archivo. Verifica que sea un Excel/CSV válido.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = '';
+}
+
+function exportAsesoresExcel(){
+  const data = asesores.map(a=>({Nombre:a.nombre, DNI:a.dni, Telefono:a.telefono, Correo:a.correo, Grupo:a.grupo}));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Asesores');
+  XLSX.writeFile(wb, 'asesores.xlsx');
+}
+
+function openAsesorModal(asesor){
+  const isEdit = !!asesor;
+  const a = asesor || {id:null, nombre:'', dni:'', telefono:'', correo:'', grupo:''};
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(19,35,58,.45);display:flex;align-items:center;justify-content:center;z-index:100;';
+  overlay.innerHTML = `
+    <div class="card" style="width:420px;padding:22px;">
+      <h3 style="font-family:var(--font-display);margin:0 0 14px;">${isEdit?'Editar asesor':'Agregar asesor'}</h3>
+      <div class="field"><label>Nombre completo</label><input id="m-nombre" value="${escapeHtml(a.nombre)}"></div>
+      <div class="field"><label>DNI</label><input id="m-dni" value="${escapeHtml(a.dni)}"></div>
+      <div class="field"><label>Teléfono</label><input id="m-telefono" value="${escapeHtml(a.telefono)}"></div>
+      <div class="field"><label>Correo</label><input id="m-correo" value="${escapeHtml(a.correo)}"></div>
+      <div class="field"><label>Grupo</label><input id="m-grupo" list="m-grupos-list" value="${escapeHtml(a.grupo)}">
+        <datalist id="m-grupos-list">${getGroups().map(g=>`<option value="${escapeHtml(g)}">`).join('')}</datalist>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+        <button class="btn btn-outline" id="m-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="m-save">${isEdit?'Guardar cambios':'Agregar'}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#m-cancel').onclick = ()=>overlay.remove();
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  overlay.querySelector('#m-save').onclick = async ()=>{
+    const nombre = overlay.querySelector('#m-nombre').value.trim();
+    if(!nombre){ alert('El nombre es obligatorio.'); return; }
+    const fields = {
+      nombre, dni: overlay.querySelector('#m-dni').value.trim(),
+      telefono: overlay.querySelector('#m-telefono').value.trim(),
+      correo: overlay.querySelector('#m-correo').value.trim(),
+      grupo: overlay.querySelector('#m-grupo').value.trim()
+    };
+    if(isEdit){ Object.assign(a, fields); }
+    else asesores.push({id:uid('as'), ...fields});
+    await persistAsesores();
+    overlay.remove();
+    renderBaseDatos();
+  };
+}
+
+async function deleteAsesor(id){
+  if(!confirm('¿Eliminar este asesor de la base de datos? Sus evaluaciones guardadas no se borrarán.')) return;
+  asesores = asesores.filter(a=>a.id!==id);
+  await persistAsesores();
+  renderBaseDatos();
+}
+
+/* ============================== INIT ============================== */
+async function initApp(){
+  const dot = document.getElementById('storage-dot');
+  const label = document.getElementById('storage-label');
+  await loadAll();
+  if(Storage.mode === 'claude'){
+    dot.classList.remove('off'); label.textContent = 'Datos sincronizados (Claude.ai)';
+  } else if(Storage.mode === 'firebase'){
+    dot.classList.remove('off'); label.textContent = 'Datos sincronizados (Firebase)';
+  } else {
+    dot.classList.add('off'); label.textContent = 'Sin almacenamiento — configura Firebase';
+  }
+  renderDashboard();
+}
+initApp();
+</script>
+</body>
+</html>
