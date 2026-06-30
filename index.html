@@ -780,13 +780,50 @@ function renderDashboard(){
     document.getElementById('ranking-bottom').innerHTML = ranked.length ? ranked.slice(-5).reverse().map(rowHTML).join('') : '<div class="empty">Sin datos suficientes.</div>';
 
     const recientes = [...evaluaciones].sort((a,b)=>new Date(b.createdAt||b.fecha)-new Date(a.createdAt||a.fecha)).slice(0,10);
-    document.getElementById('recientes-table').innerHTML = `<table><tr><th>Asesor</th><th>Grupo</th><th>Fecha</th><th>Evaluador</th><th>Retención</th><th>Nota</th></tr>
+    document.getElementById('recientes-table').innerHTML = `<table><tr><th>Asesor</th><th>Grupo</th><th>Fecha</th><th>Evaluador</th><th>Retención</th><th>Nota</th><th></th></tr>
       ${recientes.map(e=>`<tr>
         <td>${escapeHtml(e.nombre)}</td><td>${escapeHtml(e.grupo||'—')}</td><td>${fmtDate(e.fecha)}</td><td>${escapeHtml(e.evaluador||'—')}</td>
         <td>${e.retenida===true?'<span class="badge green">Retenida</span>':e.retenida===false?'<span class="badge red">No retenida</span>':'<span class="badge gray">—</span>'}</td>
         <td>${e.anulado?'<span class="badge red">Anulado</span>':`<span class="badge ${scoreColor(e.finalScore)}">${e.finalScore}%</span>`}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-outline btn-sm dash-pdf-btn" data-id="${e.id}" title="Ver PDF">📄</button>
+          <button class="btn btn-danger-outline btn-sm dash-del-btn" data-id="${e.id}" style="margin-left:4px;" title="Eliminar">🗑</button>
+        </td>
       </tr>`).join('')}
     </table>`;
+    document.querySelectorAll('.dash-del-btn').forEach(btn=>{
+      btn.onclick = async ()=>{
+        const ev = evaluaciones.find(e=>e.id===btn.dataset.id);
+        if(!ev) return;
+        if(!confirm(`¿Eliminar la evaluación de ${ev.nombre} del ${fmtDate(ev.fecha)}?\nEsta acción no se puede deshacer.`)) return;
+        evaluaciones = evaluaciones.filter(e=>e.id!==btn.dataset.id);
+        await persistEvaluaciones();
+        renderDashboard();
+      };
+    });
+    document.querySelectorAll('.dash-pdf-btn').forEach(btn=>{
+      btn.onclick = ()=>{
+        const ev = evaluaciones.find(e=>e.id===btn.dataset.id);
+        if(!ev) return;
+        const root = document.getElementById('pdf-root');
+        const content = document.getElementById('pdf-content');
+        const overlay = document.getElementById('pdf-loading-overlay');
+        content.innerHTML = buildPdfHTML(ev);
+        root.style.display = 'block';
+        overlay.style.display = 'flex';
+        const opt = {
+          margin:0, filename:`evaluacion_${(ev.nombre||'asesor').replace(/\s+/g,'_')}_${ev.fecha}.pdf`,
+          image:{type:'jpeg', quality:0.98},
+          html2canvas:{scale:2, backgroundColor:'#ffffff', useCORS:true, windowWidth:content.scrollWidth},
+          jsPDF:{unit:'pt', format:'a4', orientation:'portrait'}
+        };
+        const fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+        fontsReady
+          .then(()=>new Promise(res=>setTimeout(res,150)))
+          .then(()=>html2pdf().from(content).set(opt).save())
+          .finally(()=>{ root.style.display='none'; overlay.style.display='none'; content.innerHTML=''; });
+      };
+    });
   }
 }
 
