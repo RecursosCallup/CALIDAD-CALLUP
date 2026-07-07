@@ -281,7 +281,9 @@ const PAUTA_TOTAL = PAUTA.reduce((s,c)=>s+c.items.reduce((s2,i)=>s2+i.peso,0),0)
 const FALTAS_GRAVES = [
   { cat:'Información falsa', items:[
     'Ofrecimiento de un producto y/o servicio no existente',
-    'Entrega información o argumentos falsos para evitar la baja',
+    'Entrega información o argumentos falsos para evitar la baja'
+  ]},
+  { cat:'Gestión indebida', items:[
     'Genera retención con usuario y no titular',
     'Genera retención con menor de edad',
     'Genera retención suplantando la identidad del titular',
@@ -862,10 +864,17 @@ function ringSVG(score, size){
 function renderEvaluacionView(){
   const groups = getGroups();
 
+  const CAT_COLORS = {
+    EC_UF:  { border:'var(--amber)', soft:'var(--amber-soft)', text:'var(--amber)' },
+    EC_NEG: { border:'var(--blue)',  soft:'var(--blue-soft)',  text:'var(--blue)'  },
+    ENC:    { border:'var(--green)', soft:'var(--green-soft)', text:'var(--green)' }
+  };
+
   let pautaHTML = '';
   PAUTA.forEach(cat=>{
-    pautaHTML += `<div class="pauta-cat">
-      <div class="pauta-cat-head"><span class="pauta-cat-tag">${escapeHtml(cat.cat)}</span> ${escapeHtml(cat.catLabel)} <span class="pauta-cat-peso">${cat.catPeso}%</span></div>`;
+    const cc = CAT_COLORS[cat.cat] || { border:'var(--border)', soft:'var(--blue-soft)', text:'var(--blue)' };
+    pautaHTML += `<div class="pauta-cat" style="border-color:${cc.border};">
+      <div class="pauta-cat-head"><span class="pauta-cat-tag" style="background:${cc.soft};color:${cc.text};">${escapeHtml(cat.cat)}</span> ${escapeHtml(cat.catLabel)} <span class="pauta-cat-peso">${cat.catPeso}%</span></div>`;
     cat.items.forEach(item=>{
       pautaHTML += `<div class="item-card" data-item="${item.id}">
         <div class="item-head">
@@ -899,7 +908,8 @@ function renderEvaluacionView(){
 
   document.getElementById('view-evaluacion').innerHTML = `
   <style>
-    .pauta-cat{margin-bottom:18px;}
+    .pauta-cat{margin-bottom:18px;border:2px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px 16px;background:#fff;}
+    .pauta-cat .item-card:last-child{margin-bottom:0;}
     .pauta-cat-head{font-family:var(--font-display);font-weight:700;font-size:13.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px;color:var(--navy-2);}
     .pauta-cat-tag{font-family:var(--font-mono);font-size:10px;background:var(--blue-soft);color:var(--blue);padding:2px 7px;border-radius:5px;}
     .pauta-cat-peso{margin-left:auto;color:var(--text-faint);font-weight:600;font-size:12px;}
@@ -970,7 +980,7 @@ function renderEvaluacionView(){
         ${pautaHTML}
       </div>
 
-      <div class="card panel">
+      <div class="card panel" style="border:2px solid var(--red);">
         <div class="panel-head"><h3 style="color:var(--red);">Faltas graves</h3><span class="hint">Marcar solo si ocurrió. Cualquier marca anula el examen.</span></div>
         ${faltasHTML}
       </div>
