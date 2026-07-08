@@ -151,6 +151,8 @@ tr:last-child td{border-bottom:none;}
 .dash-tipo-toggle{display:inline-flex;gap:3px;background:#EEF0F4;border-radius:9px;padding:3px;}
 .dash-tipo-btn{padding:6px 14px;border-radius:7px;border:none;background:transparent;font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--text-soft);cursor:pointer;}
 .dash-tipo-btn.active{background:#fff;color:var(--brand-2);box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.chart-box{position:relative;height:190px;}
+.chart-box-sm{height:190px;max-width:280px;margin:0 auto;}
 
 /* ===== MÓDULO RETENCIONES (CALENDARIO) ===== */
 .ret-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:8px;text-align:center;font-size:11px;font-weight:700;color:var(--text-soft);text-transform:uppercase;letter-spacing:.4px;}
@@ -528,12 +530,25 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
 /* ============================== MÓDULO 1: DASHBOARD ============================== */
 let chartTrend=null, chartGrupo=null, chartRetencion=null, chartSemanal=null, chartMensual=null;
 
+// Esquema de semanas fijas por mes: Semana 1 = días 1-8, Semana 2 = 9-16, Semana 3 = 17-24, Semana 4 = 25-fin de mes.
+function customWeekRange(date){
+  const year = date.getFullYear(), month = date.getMonth(), day = date.getDate();
+  const lastDay = new Date(year, month+1, 0).getDate();
+  let weekNum, startDay, endDayExclusive;
+  if(day<=8){ weekNum=1; startDay=1; endDayExclusive=9; }
+  else if(day<=16){ weekNum=2; startDay=9; endDayExclusive=17; }
+  else if(day<=24){ weekNum=3; startDay=17; endDayExclusive=25; }
+  else { weekNum=4; startDay=25; endDayExclusive=lastDay+1; }
+  return {
+    weekNum, year, month, lastDay,
+    start: new Date(year, month, startDay, 0,0,0,0),
+    end: new Date(year, month, endDayExclusive, 0,0,0,0) // exclusivo
+  };
+}
 function isInCurrentWeek(dateStr){
   const d = new Date(dateStr); if(isNaN(d)) return false;
-  const now = new Date();
-  const start = new Date(now); start.setDate(now.getDate()-now.getDay()); start.setHours(0,0,0,0);
-  const end = new Date(start); end.setDate(start.getDate()+7);
-  return d>=start && d<end;
+  const r = customWeekRange(new Date());
+  return d>=r.start && d<r.end;
 }
 function isInCurrentMonth(dateStr){
   const d = new Date(dateStr); if(isNaN(d)) return false;
@@ -619,14 +634,23 @@ function computeMotivoStats(list){
 
 function weekKey(dateStr){
   const d = new Date(dateStr); if(isNaN(d)) return null;
-  const start = new Date(d); start.setDate(d.getDate()-d.getDay()); start.setHours(0,0,0,0);
-  return start.toISOString().slice(0,10);
+  const r = customWeekRange(d);
+  return `${r.year}-${String(r.month+1).padStart(2,'0')}-S${r.weekNum}`;
 }
 function monthKey(dateStr){
   const d = new Date(dateStr); if(isNaN(d)) return null;
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 }
-function weekLabel(k){ return new Date(k).toLocaleDateString('es-PE',{day:'2-digit',month:'short'}); }
+function weekLabel(k){
+  const m = k.match(/^(\d+)-(\d+)-S(\d)$/);
+  if(!m) return k;
+  const year=+m[1], month=+m[2]-1, weekNum=+m[3];
+  const lastDay = new Date(year, month+1, 0).getDate();
+  const ranges = {1:[1,8], 2:[9,16], 3:[17,24], 4:[25,lastDay]};
+  const [d1,d2] = ranges[weekNum];
+  const monthShort = new Date(year,month,1).toLocaleDateString('es-PE',{month:'short'});
+  return `S${weekNum} ${d1}-${d2} ${monthShort}`;
+}
 function monthLabel(k){ const [y,m]=k.split('-'); return new Date(parseInt(y),parseInt(m)-1,1).toLocaleDateString('es-PE',{month:'short',year:'2-digit'}); }
 function computeBucketedAvg(keyFn, limit, list){
   list = list || evaluaciones;
@@ -665,14 +689,14 @@ function renderDashboard(){
       <div class="card kpi green"><div class="kpi-label">Tasa de retención</div><div class="kpi-value">${tasaRetencion.toFixed(1)}%</div><div class="kpi-foot">${retenidas} retenidas / ${noRetenidas} no retenidas</div></div>
       <div class="card kpi red"><div class="kpi-label">Exámenes anulados</div><div class="kpi-value">${anuladas}</div><div class="kpi-foot">Por falta grave</div></div>
     </div>
-    <div class="two-col">
+    <div class="two-col" style="grid-template-columns:1fr 1fr;">
       <div class="card panel">
         <div class="panel-head"><h3>Promedio de nota por grupo</h3></div>
-        <canvas id="chart-grupo" height="200"></canvas>
+        <div class="chart-box"><canvas id="chart-grupo"></canvas></div>
       </div>
       <div class="card panel">
         <div class="panel-head"><h3>Retenida vs. no retenida</h3></div>
-        <canvas id="chart-retencion" height="200"></canvas>
+        <div class="chart-box chart-box-sm"><canvas id="chart-retencion"></canvas></div>
       </div>
     </div>
     <div class="two-col">
@@ -752,15 +776,15 @@ function renderDashboard(){
     if(chartGrupo) chartGrupo.destroy();
     chartGrupo = new Chart(document.getElementById('chart-grupo'), {
       type:'bar',
-      data:{ labels: grupos.length?grupos:['Sin grupo'], datasets:[{ data: grupos.length?grupoData:[0], backgroundColor:'#E5147C', borderRadius:6, maxBarThickness:42 }]},
-      options:{ plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true, max:100, grid:{color:'#EEF1F4'} }, x:{grid:{display:false}} } }
+      data:{ labels: grupos.length?grupos:['Sin grupo'], datasets:[{ data: grupos.length?grupoData:[0], backgroundColor:'#E5147C', borderRadius:6, maxBarThickness:30 }]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true, max:100, grid:{color:'#EEF1F4'} }, x:{grid:{display:false}} } }
     });
 
     if(chartRetencion) chartRetencion.destroy();
     chartRetencion = new Chart(document.getElementById('chart-retencion'), {
       type:'doughnut',
       data:{ labels:['Retenida','No retenida'], datasets:[{ data:[retenidas, noRetenidas], backgroundColor:['#1E8E5A','#C0392B'], borderWidth:0 }]},
-      options:{ plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:11}}}}, cutout:'68%' }
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom', labels:{boxWidth:10,font:{size:11}}}}, cutout:'68%' }
     });
 
     const sorted = [...evs].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha)).slice(-15);
@@ -1911,9 +1935,8 @@ function flatRetenciones(){
 function getPeriodRange(type, ref){
   if(type==='todo') return null;
   if(type==='semana'){
-    const start = new Date(ref); start.setDate(ref.getDate()-ref.getDay()); start.setHours(0,0,0,0);
-    const end = new Date(start); end.setDate(start.getDate()+7);
-    return {start, end};
+    const r = customWeekRange(ref);
+    return {start:r.start, end:r.end};
   }
   const start = new Date(ref.getFullYear(), ref.getMonth(), 1);
   const end = new Date(ref.getFullYear(), ref.getMonth()+1, 1);
@@ -1928,23 +1951,35 @@ function periodLabel(type, ref){
   if(type==='todo') return 'Todo el historial';
   const r = getPeriodRange(type, ref);
   if(type==='semana'){
+    const cw = customWeekRange(ref);
     const endIncl = new Date(r.end); endIncl.setDate(endIncl.getDate()-1);
     const fmt = (d)=>d.toLocaleDateString('es-PE',{day:'2-digit',month:'short'});
-    return `Semana ${fmt(r.start)} – ${fmt(endIncl)} ${endIncl.getFullYear()}`;
+    return `Semana ${cw.weekNum} · ${fmt(r.start)} – ${fmt(endIncl)} ${endIncl.getFullYear()}`;
   }
   let l = ref.toLocaleDateString('es-PE',{month:'long', year:'numeric'});
   return l.charAt(0).toUpperCase()+l.slice(1);
 }
 function periodFileTag(){
   if(reportesPeriodType==='todo') return 'historico';
+  if(reportesPeriodType==='semana'){
+    const cw = customWeekRange(reportesPeriodRef);
+    return `semana${cw.weekNum}_${cw.year}-${String(cw.month+1).padStart(2,'0')}`;
+  }
   const r = getPeriodRange(reportesPeriodType, reportesPeriodRef);
   return reportesPeriodType+'_'+r.start.toISOString().slice(0,10);
 }
 function shiftReportesPeriod(dir){
-  const d = new Date(reportesPeriodRef);
-  if(reportesPeriodType==='semana') d.setDate(d.getDate()+7*dir);
-  else if(reportesPeriodType==='mes') d.setMonth(d.getMonth()+dir);
-  reportesPeriodRef = d;
+  if(reportesPeriodType==='semana'){
+    const cw = customWeekRange(reportesPeriodRef);
+    let weekNum = cw.weekNum + dir, month = cw.month, year = cw.year;
+    if(weekNum<1){ weekNum=4; month--; if(month<0){ month=11; year--; } }
+    if(weekNum>4){ weekNum=1; month++; if(month>11){ month=0; year++; } }
+    const startDay = weekNum===1?1: weekNum===2?9: weekNum===3?17:25;
+    reportesPeriodRef = new Date(year, month, startDay);
+  } else if(reportesPeriodType==='mes'){
+    const d = new Date(reportesPeriodRef); d.setMonth(d.getMonth()+dir);
+    reportesPeriodRef = d;
+  }
   renderReportes();
 }
 function clasificarCuadrante(notaCal, pctRet){
