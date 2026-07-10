@@ -221,16 +221,19 @@ tr:last-child td{border-bottom:none;}
       <button class="nav-btn" data-view="evaluacion"><span class="nav-num">02</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
         Evaluación</button>
-      <button class="nav-btn" data-view="perfiles"><span class="nav-num">03</span>
+      <button class="nav-btn" data-view="evaluaciones"><span class="nav-num">03</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
+        Evaluaciones</button>
+      <button class="nav-btn" data-view="perfiles"><span class="nav-num">04</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a7 7 0 0114 0v1"/></svg>
         Perfiles</button>
-      <button class="nav-btn" data-view="basedatos"><span class="nav-num">04</span>
+      <button class="nav-btn" data-view="basedatos"><span class="nav-num">05</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
         Base de datos</button>
-      <button class="nav-btn" data-view="retenciones"><span class="nav-num">05</span>
+      <button class="nav-btn" data-view="retenciones"><span class="nav-num">06</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg>
         Retenciones</button>
-      <button class="nav-btn" data-view="reportes"><span class="nav-num">06</span>
+      <button class="nav-btn" data-view="reportes"><span class="nav-num">07</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
         Reportes</button>
     </nav>
@@ -254,6 +257,7 @@ tr:last-child td{border-bottom:none;}
 
       <div class="view active" id="view-dashboard"></div>
       <div class="view" id="view-evaluacion"></div>
+      <div class="view" id="view-evaluaciones"></div>
       <div class="view" id="view-perfiles"></div>
       <div class="view" id="view-basedatos"></div>
       <div class="view" id="view-retenciones"></div>
@@ -279,45 +283,45 @@ tr:last-child td{border-bottom:none;}
 const PAUTA = [
   { cat:'EC_UF', catLabel:'Entrega de información', catPeso:10, items:[
     { id:'entrega_info', nombre:'Entrega de información', peso:10, sub:[
-      {id:'info_correcta', t:'Entrega información correcta y completa'}
+      {id:'info_correcta', t:'Entrega información correcta y completa', noAplica:false, razones:['Entrega información incorrecta','Entrega información incompleta','No entrega ninguna información']}
     ]}
   ]},
   { cat:'EC_NEG', catLabel:'Evaluación comercial / negativa', catPeso:60, items:[
     { id:'habilidad_comercial', nombre:'Habilidad comercial', peso:15, sub:[
-      {id:'filtros_descartes', t:'Filtros y/o descartes (identifica necesidad, sondeo de intención de baja)'},
-      {id:'sondeo_negativa', t:'Sondeo de la negativa'},
-      {id:'rebate_negativa', t:'Rebate ante la negativa'},
-      {id:'resalta_ventaja', t:'Resalta ventaja o beneficios de la herramienta'}
+      {id:'filtros_descartes', t:'Filtros y/o descartes (identifica necesidad, sondeo de intención de baja)', noAplica:false, razones:['No sondeo','Realiza sondeo incorrecto','Realiza preguntas innecesarias']},
+      {id:'sondeo_negativa', t:'Sondeo de la negativa', noAplica:false, razones:['No indaga sobre la negativa del cliente']},
+      {id:'rebate_negativa', t:'Rebate ante la negativa', noAplica:false, razones:['No rebate','Rebate es insuficiente, débil o errado']},
+      {id:'resalta_ventaja', t:'Resalta ventaja o beneficios de obtener la herramienta ofrecida', noAplica:false, razones:['No utiliza beneficios','Utiliza beneficios incorrectos','Utiliza beneficios no acordes a la necesidad']}
     ]},
     { id:'gestion_cierre', nombre:'Correcta gestión de cierre', peso:10, sub:[
-      {id:'actitud_comercial', t:'Actitud comercial'},
-      {id:'comentarios_inadecuados', t:'Uso de comentarios inadecuados/negativos sobre la empresa'},
-      {id:'induce_baja', t:'Induce a la baja / pedir más beneficios / reclamar'},
-      {id:'pre_cierre', t:'Uso del pre-cierre comercial'}
+      {id:'actitud_comercial', t:'Actitud comercial', noAplica:true, razones:['No muestra intención de retención']},
+      {id:'comentarios_inadecuados', t:'Uso de comentarios inadecuados/negativos sobre la empresa', noAplica:true, razones:['Se expresa de manera negativa de otra área de la empresa','Se expresa de manera negativa de su compañero anterior']},
+      {id:'induce_baja', t:'Induce a la baja / pedir más beneficios / reclamar', noAplica:true, razones:['Induce a la baja','Induce a solicitar más beneficios a futuro','Induce a realizar un reclamo']},
+      {id:'pre_cierre', t:'Uso del pre-cierre comercial', noAplica:true, razones:['No genera cierre','Realiza cierre incorrecto']}
     ]},
     { id:'procedimiento_establecido', nombre:'Procedimiento establecido', peso:15, sub:[
-      {id:'validacion_datos', t:'Validación o solicitud de datos'},
-      {id:'validacion_resolucion', t:'Validación de resolución'},
-      {id:'fidelizacion_uf', t:'Fidelización del UF'},
-      {id:'validacion_cobertura', t:'Validación cobertura'}
+      {id:'validacion_datos', t:'Validación o solicitud de datos', noAplica:true, razones:['No solicita dígito verificador','No solicita datos','No valida datos']},
+      {id:'validacion_resolucion', t:'Validación de resolución', noAplica:true, razones:['No gestiona solución acorde al motivo de baja']},
+      {id:'fidelizacion_uf', t:'Fidelización del UF', noAplica:true, razones:[]},
+      {id:'validacion_cobertura', t:'Validación cobertura', noAplica:true, razones:[]}
     ]},
     { id:'manejo_tiempos', nombre:'Manejo de tiempos', peso:10, sub:[
-      {id:'gestiona_tiempos', t:'Gestiona adecuadamente los tiempos'}
+      {id:'gestiona_tiempos', t:'Gestiona adecuadamente los tiempos', noAplica:true, razones:['No retoma llamada cada 60seg','Deja correr el tiempo en llamada innecesariamente','Solicita tiempos innecesarios','Retoma llamada sin disculparse o explicar gestión','No atiende llamada dentro de los 5seg iniciales']}
     ]},
     { id:'registro_validacion', nombre:'Registro y validación', peso:10, sub:[
-      {id:'tipificacion_registro', t:'Tipificación y registro de datos en sistemas'}
+      {id:'tipificacion_registro', t:'Tipificación y registro de datos en sistemas', noAplica:true, razones:['Tipifica de forma incorrecta SGC','Tipifica de forma incorrecta Zendesk','Registra datos de forma incorrecta en SGC','Registra datos de forma incorrecta en Zendesk','No realiza registro de retención en SGC y/o Zendesk']}
     ]}
   ]},
   { cat:'ENC', catLabel:'Encuesta de atención', catPeso:30, items:[
     { id:'protocolo_atencion', nombre:'Protocolo de atención', peso:5, sub:[
-      {id:'bienvenida_despedida', t:'Bienvenida y despedida'},
-      {id:'uso_muletillas', t:'Uso de muletillas'},
-      {id:'personalizacion', t:'Personalización'}
+      {id:'bienvenida_despedida', t:'Bienvenida y despedida', noAplica:true, razones:['No saluda con su nombre y apellido','No se despide','No se identifica como WOW']},
+      {id:'uso_muletillas', t:'Uso de muletillas', noAplica:true, razones:[]},
+      {id:'personalizacion', t:'Personalización', noAplica:true, razones:[]}
     ]},
     { id:'habilidades_comunicativas', nombre:'Habilidades comunicativas', peso:25, sub:[
-      {id:'claridad_informacion', t:'Claridad en la información'},
-      {id:'escucha_activa', t:'Escucha activa'},
-      {id:'empatia_sonrisa', t:'Empatía y sonrisa telefónica'}
+      {id:'claridad_informacion', t:'Claridad en la información', noAplica:true, razones:['Redunda en la entrega de información','Presenta dubitativas','No presenta orden en la llamada']},
+      {id:'escucha_activa', t:'Escucha activa', noAplica:true, razones:['Interrumpe al cliente','Solicita datos ya entregados','Se muestra distraído']},
+      {id:'empatia_sonrisa', t:'Empatía y sonrisa telefónica', noAplica:true, razones:['No empatiza con la situación del cliente','Se muestra cortante, lineal']}
     ]}
   ]}
 ];
@@ -482,20 +486,33 @@ async function loadAll(){
 }
 
 /* ============================== SCORING ============================== */
-function evaluarItem(item, answers){
-  const allAnswered = item.sub.every(s => answers[s.id]===true || answers[s.id]===false);
+// Un sub-ítem se considera "respondido" cuando:
+//  - está en true (Cumple) o 'na' (No aplica), o
+//  - está en false (No cumple) y, si el sub-ítem tiene razones específicas, ya se eligió una.
+function subRespondido(s, answers, reasons){
+  const v = answers[s.id];
+  if(v===true || v==='na') return true;
+  if(v===false){
+    if(!s.razones || s.razones.length===0) return true;
+    return !!(reasons && reasons[s.id]);
+  }
+  return false;
+}
+function evaluarItem(item, answers, reasons){
+  const allAnswered = item.sub.every(s => subRespondido(s, answers, reasons));
   if(!allAnswered) return {complete:false, cumple:null, score:0};
-  const cumple = item.sub.every(s => answers[s.id]===true);
+  // "No aplica" no exige el cumplimiento del sub-ítem: se excluye del chequeo, no resta.
+  const cumple = item.sub.every(s => answers[s.id]===true || answers[s.id]==='na');
   return {complete:true, cumple, score: cumple ? item.peso : 0};
 }
-function computeResultado(answers, faltasChecked){
+function computeResultado(answers, faltasChecked, reasons){
   if(faltasChecked && faltasChecked.length>0){
     return {anulado:true, finalScore:0, items:{}, allComplete:true};
   }
   let total=0, allComplete=true;
   const items={};
   PAUTA.forEach(cat=>cat.items.forEach(item=>{
-    const r = evaluarItem(item, answers);
+    const r = evaluarItem(item, answers, reasons);
     items[item.id]=r;
     if(!r.complete) allComplete=false;
     total += r.score;
@@ -507,6 +524,7 @@ function computeResultado(answers, faltasChecked){
 const VIEW_META = {
   dashboard:{title:'Dashboard', sub:'Resumen general de evaluaciones'},
   evaluacion:{title:'Evaluación de llamada', sub:'Pauta de calificación dinámica'},
+  evaluaciones:{title:'Evaluaciones', sub:'Historial completo de evaluaciones registradas'},
   perfiles:{title:'Perfiles de asesores', sub:'Desempeño individual semanal y mensual'},
   basedatos:{title:'Base de datos', sub:'Asesores por grupo'},
   retenciones:{title:'Porcentaje de retenciones', sub:'Carga diaria de resultados por asesor'},
@@ -520,6 +538,7 @@ function switchView(view){
   document.getElementById('topbar-actions').innerHTML = '';
   if(view==='dashboard') renderDashboard();
   if(view==='evaluacion') renderEvaluacionTopbarActions();
+  if(view==='evaluaciones') renderEvaluacionesListado();
   if(view==='perfiles') renderPerfiles();
   if(view==='basedatos') renderBaseDatos();
   if(view==='retenciones') renderRetenciones();
@@ -747,10 +766,6 @@ function renderDashboard(){
         <div id="ranking-bottom"></div>
       </div>
     </div>
-    <div class="card panel">
-      <div class="panel-head"><h3>Evaluaciones recientes</h3></div>
-      <div id="recientes-table"></div>
-    </div>
   `;
 
   if(total===0){
@@ -767,7 +782,6 @@ function renderDashboard(){
     document.getElementById('chart-trend').outerHTML = '<div class="empty">Registra evaluaciones para ver la tendencia.</div>';
     document.getElementById('ranking-top').innerHTML = '<div class="empty">Sin datos suficientes.</div>';
     document.getElementById('ranking-bottom').innerHTML = '<div class="empty">Sin datos suficientes.</div>';
-    document.getElementById('recientes-table').innerHTML = '<div class="empty">Aún no se ha registrado ninguna evaluación.</div>';
   } else {
     // por grupo
     const grupos = [...new Set([...getGroups(), ...evs.map(e=>e.grupo).filter(Boolean)])].sort((a,b)=>a.localeCompare(b));
@@ -884,52 +898,6 @@ function renderDashboard(){
       <div class="badge ${scoreColor(a.avg)}">${a.avg.toFixed(1)}%</div></div>`;
     document.getElementById('ranking-top').innerHTML = ranked.length ? ranked.slice(0,5).map(rowHTML).join('') : '<div class="empty">Sin datos suficientes.</div>';
     document.getElementById('ranking-bottom').innerHTML = ranked.length ? ranked.slice(-5).reverse().map(rowHTML).join('') : '<div class="empty">Sin datos suficientes.</div>';
-
-    const recientes = [...evs].sort((a,b)=>new Date(b.createdAt||b.fecha)-new Date(a.createdAt||a.fecha)).slice(0,10);
-    document.getElementById('recientes-table').innerHTML = `<table><tr><th>Asesor</th><th>Grupo</th><th>Fecha</th><th>Evaluador</th><th>Retención</th><th>Nota</th><th></th></tr>
-      ${recientes.map(e=>`<tr>
-        <td>${escapeHtml(e.nombre)}</td><td>${escapeHtml(e.grupo||'—')}</td><td>${fmtDate(e.fecha)}</td><td>${escapeHtml(e.evaluador||'—')}</td>
-        <td>${e.retenida===true?'<span class="badge green">Retenida</span>':e.retenida===false?'<span class="badge red">No retenida</span>':'<span class="badge gray">—</span>'}</td>
-        <td>${e.anulado?'<span class="badge red">Anulado</span>':`<span class="badge ${scoreColor(e.finalScore)}">${e.finalScore}%</span>`}</td>
-        <td style="white-space:nowrap;">
-          <button class="btn btn-outline btn-sm dash-pdf-btn" data-id="${e.id}" title="Ver PDF">📄</button>
-          <button class="btn btn-danger-outline btn-sm dash-del-btn" data-id="${e.id}" style="margin-left:4px;" title="Eliminar">🗑</button>
-        </td>
-      </tr>`).join('')}
-    </table>`;
-    document.querySelectorAll('.dash-del-btn').forEach(btn=>{
-      btn.onclick = async ()=>{
-        const ev = evaluaciones.find(e=>e.id===btn.dataset.id);
-        if(!ev) return;
-        if(!confirm(`¿Eliminar la evaluación de ${ev.nombre} del ${fmtDate(ev.fecha)}?\nEsta acción no se puede deshacer.`)) return;
-        evaluaciones = evaluaciones.filter(e=>e.id!==btn.dataset.id);
-        await persistEvaluaciones();
-        renderDashboard();
-      };
-    });
-    document.querySelectorAll('.dash-pdf-btn').forEach(btn=>{
-      btn.onclick = ()=>{
-        const ev = evaluaciones.find(e=>e.id===btn.dataset.id);
-        if(!ev) return;
-        const root = document.getElementById('pdf-root');
-        const content = document.getElementById('pdf-content');
-        const overlay = document.getElementById('pdf-loading-overlay');
-        content.innerHTML = buildPdfHTML(ev);
-        root.style.display = 'block';
-        overlay.style.display = 'flex';
-        const opt = {
-          margin:0, filename:`evaluacion_${(ev.nombre||'asesor').replace(/\s+/g,'_')}_${ev.fecha}.pdf`,
-          image:{type:'jpeg', quality:0.98},
-          html2canvas:{scale:2, backgroundColor:'#ffffff', useCORS:true, windowWidth:content.scrollWidth},
-          jsPDF:{unit:'pt', format:'a4', orientation:'portrait'}
-        };
-        const fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
-        fontsReady
-          .then(()=>new Promise(res=>setTimeout(res,150)))
-          .then(()=>html2pdf().from(content).set(opt).save())
-          .finally(()=>{ root.style.display='none'; overlay.style.display='none'; content.innerHTML=''; });
-      };
-    });
   }
 
   document.querySelectorAll('#dash-tipo-toggle .dash-tipo-btn').forEach(btn=>{
@@ -937,6 +905,122 @@ function renderDashboard(){
       dashboardTipoFilter = btn.dataset.tipo;
       renderDashboard();
     };
+  });
+}
+
+/* ============================== MÓDULO: EVALUACIONES (listado completo) ============================== */
+let evalListState = { q:'', grupo:'', retenida:'', tipoEval:'' };
+
+function verPdfEvaluacion(ev){
+  const root = document.getElementById('pdf-root');
+  const content = document.getElementById('pdf-content');
+  const overlay = document.getElementById('pdf-loading-overlay');
+  content.innerHTML = buildPdfHTML(ev);
+  root.style.display = 'block';
+  overlay.style.display = 'flex';
+  const opt = {
+    margin:0, filename:`evaluacion_${(ev.nombre||'asesor').replace(/\s+/g,'_')}_${ev.fecha}.pdf`,
+    image:{type:'jpeg', quality:0.98},
+    html2canvas:{scale:2, backgroundColor:'#ffffff', useCORS:true, windowWidth:content.scrollWidth},
+    jsPDF:{unit:'pt', format:'a4', orientation:'portrait'}
+  };
+  const fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+  fontsReady
+    .then(()=>new Promise(res=>setTimeout(res,150)))
+    .then(()=>html2pdf().from(content).set(opt).save())
+    .finally(()=>{ root.style.display='none'; overlay.style.display='none'; content.innerHTML=''; });
+}
+
+async function eliminarEvaluacion(id, onDone){
+  const ev = evaluaciones.find(e=>e.id===id);
+  if(!ev) return;
+  if(!confirm(`¿Eliminar la evaluación de ${ev.nombre} del ${fmtDate(ev.fecha)}?\nEsta acción no se puede deshacer.`)) return;
+  evaluaciones = evaluaciones.filter(e=>e.id!==id);
+  await persistEvaluaciones();
+  if(onDone) onDone();
+}
+
+function renderEvaluacionesListado(){
+  document.getElementById('topbar-actions').innerHTML = `<span style="font-size:12.5px;color:var(--text-soft);">${evaluaciones.length} evaluación(es) registradas</span>`;
+
+  const grupos = [...new Set(evaluaciones.map(e=>e.grupo).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+
+  document.getElementById('view-evaluaciones').innerHTML = `
+    <div class="card panel">
+      <div class="panel-head"><h3>Filtros</h3></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;">
+        <div class="field" style="margin-bottom:0;"><label>Buscar</label><input id="ev-list-q" placeholder="Nombre del asesor o evaluador..." value="${escapeHtml(evalListState.q)}"></div>
+        <div class="field" style="margin-bottom:0;"><label>Grupo</label>
+          <select id="ev-list-grupo"><option value="">Todos</option>${grupos.map(g=>`<option value="${escapeHtml(g)}" ${evalListState.grupo===g?'selected':''}>${escapeHtml(g)}</option>`).join('')}</select>
+        </div>
+        <div class="field" style="margin-bottom:0;"><label>Retención</label>
+          <select id="ev-list-ret">
+            <option value="" ${evalListState.retenida===''?'selected':''}>Todas</option>
+            <option value="si" ${evalListState.retenida==='si'?'selected':''}>Retenida</option>
+            <option value="no" ${evalListState.retenida==='no'?'selected':''}>No retenida</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:0;"><label>Tipo</label>
+          <select id="ev-list-tipo">
+            <option value="" ${evalListState.tipoEval===''?'selected':''}>Todos</option>
+            <option value="Muestral" ${evalListState.tipoEval==='Muestral'?'selected':''}>Muestral</option>
+            <option value="Seguimiento" ${evalListState.tipoEval==='Seguimiento'?'selected':''}>Seguimiento</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="card panel">
+      <div class="panel-head"><h3>Evaluaciones</h3><span class="hint" id="ev-list-count"></span></div>
+      <div id="ev-list-table"></div>
+    </div>
+  `;
+
+  document.getElementById('ev-list-q').addEventListener('input', e=>{ evalListState.q = e.target.value; renderEvalListTable(); });
+  document.getElementById('ev-list-grupo').addEventListener('change', e=>{ evalListState.grupo = e.target.value; renderEvalListTable(); });
+  document.getElementById('ev-list-ret').addEventListener('change', e=>{ evalListState.retenida = e.target.value; renderEvalListTable(); });
+  document.getElementById('ev-list-tipo').addEventListener('change', e=>{ evalListState.tipoEval = e.target.value; renderEvalListTable(); });
+
+  renderEvalListTable();
+}
+
+function renderEvalListTable(){
+  const q = evalListState.q.trim().toLowerCase();
+  let list = [...evaluaciones];
+  if(q) list = list.filter(e=> (e.nombre||'').toLowerCase().includes(q) || (e.evaluador||'').toLowerCase().includes(q));
+  if(evalListState.grupo) list = list.filter(e=>e.grupo===evalListState.grupo);
+  if(evalListState.retenida==='si') list = list.filter(e=>e.retenida===true);
+  if(evalListState.retenida==='no') list = list.filter(e=>e.retenida===false);
+  if(evalListState.tipoEval) list = list.filter(e=>e.tipoEval===evalListState.tipoEval);
+  list.sort((a,b)=>new Date(b.createdAt||b.fecha)-new Date(a.createdAt||a.fecha));
+
+  document.getElementById('ev-list-count').textContent = `${list.length} de ${evaluaciones.length}`;
+
+  if(!list.length){
+    document.getElementById('ev-list-table').innerHTML = '<div class="empty">No hay evaluaciones que coincidan con el filtro.</div>';
+    return;
+  }
+
+  document.getElementById('ev-list-table').innerHTML = `<div style="max-height:65vh;overflow-y:auto;"><table><tr><th>Asesor</th><th>Grupo</th><th>Fecha</th><th>Evaluador</th><th>Tipo</th><th>Retención</th><th>Nota</th><th></th></tr>
+    ${list.map(e=>`<tr>
+      <td>${escapeHtml(e.nombre)}</td><td>${escapeHtml(e.grupo||'—')}</td><td>${fmtDate(e.fecha)}</td><td>${escapeHtml(e.evaluador||'—')}</td>
+      <td>${e.tipoEval?`<span class="badge gray">${escapeHtml(e.tipoEval)}</span>`:'—'}</td>
+      <td>${e.retenida===true?'<span class="badge green">Retenida</span>':e.retenida===false?'<span class="badge red">No retenida</span>':'<span class="badge gray">—</span>'}</td>
+      <td>${e.anulado?'<span class="badge red">Anulado</span>':`<span class="badge ${scoreColor(e.finalScore)}">${e.finalScore}%</span>`}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-outline btn-sm ev-list-pdf-btn" data-id="${e.id}" title="Ver PDF">📄</button>
+        <button class="btn btn-danger-outline btn-sm ev-list-del-btn" data-id="${e.id}" style="margin-left:4px;" title="Eliminar">🗑</button>
+      </td>
+    </tr>`).join('')}
+  </table></div>`;
+
+  document.querySelectorAll('.ev-list-pdf-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      const ev = evaluaciones.find(e=>e.id===btn.dataset.id);
+      if(ev) verPdfEvaluacion(ev);
+    };
+  });
+  document.querySelectorAll('.ev-list-del-btn').forEach(btn=>{
+    btn.onclick = ()=> eliminarEvaluacion(btn.dataset.id, renderEvalListTable);
   });
 }
 
@@ -948,7 +1032,7 @@ function newEvalState(){
     retenida: null, // true/false/null
     aQuien: '', motivo:'', motivoDetalle:'',
     tipoEval: null, // 'Muestral' | 'Seguimiento'
-    answers:{}, faltasChecked:[], feedback:'',
+    answers:{}, reasons:{}, faltasChecked:[], feedback:'',
     savedId:null
   };
 }
@@ -1020,12 +1104,20 @@ function renderEvaluacionView(){
         </div>
         <div class="sub-list">`;
       item.sub.forEach(s=>{
+        const currentVal = evalState.answers[s.id];
+        const showReasons = currentVal===false && s.razones && s.razones.length>0;
         pautaHTML += `<div class="sub-row" data-sub="${s.id}" data-item="${item.id}">
-          <div class="sub-text">${escapeHtml(s.t)}</div>
-          <div class="sub-toggle">
-            <button type="button" class="toggle-btn cumple" data-sub="${s.id}" data-val="true">Cumple</button>
-            <button type="button" class="toggle-btn nocumple" data-sub="${s.id}" data-val="false">No cumple</button>
+          <div class="sub-row-top">
+            <div class="sub-text">${escapeHtml(s.t)}</div>
+            <div class="sub-toggle">
+              <button type="button" class="toggle-btn cumple" data-sub="${s.id}" data-val="true">Cumple</button>
+              <button type="button" class="toggle-btn nocumple" data-sub="${s.id}" data-val="false">No cumple</button>
+              ${s.noAplica ? `<button type="button" class="toggle-btn naplica" data-sub="${s.id}" data-val="na">No aplica</button>` : ''}
+            </div>
           </div>
+          ${s.razones && s.razones.length ? `<div class="sub-reasons" data-sub-reasons="${s.id}" style="display:${showReasons?'flex':'none'};">
+            ${s.razones.map(r=>`<button type="button" class="reason-chip" data-sub="${s.id}" data-reason="${escapeHtml(r)}">${escapeHtml(r)}</button>`).join('')}
+          </div>` : ''}
         </div>`;
       });
       pautaHTML += `</div></div>`;
@@ -1058,13 +1150,18 @@ function renderEvaluacionView(){
     .item-score{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:#EEF1F4;color:var(--text-soft);}
     .item-score.ok{background:var(--green-soft);color:var(--green);}
     .item-score.bad{background:var(--red-soft);color:var(--red);}
-    .sub-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px dashed #E6E9ED;}
+    .sub-row{padding:7px 0;border-top:1px dashed #E6E9ED;}
     .sub-row:first-child{border-top:none;}
+    .sub-row-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
     .sub-text{font-size:12.5px;color:var(--text);flex:1;}
     .sub-toggle{display:flex;gap:6px;flex-shrink:0;}
     .toggle-btn{font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:99px;border:1px solid var(--border);background:#fff;color:var(--text-soft);}
     .toggle-btn.cumple.active{background:var(--green);border-color:var(--green);color:#fff;}
     .toggle-btn.nocumple.active{background:var(--red);border-color:var(--red);color:#fff;}
+    .toggle-btn.naplica.active{background:var(--text-faint);border-color:var(--text-faint);color:#fff;}
+    .sub-reasons{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding:10px;background:var(--red-soft);border-radius:var(--radius-sm);border:1px dashed var(--red);}
+    .reason-chip{font-size:11px;font-weight:600;padding:5px 10px;border-radius:99px;border:1px solid var(--red);background:#fff;color:var(--red);opacity:.8;}
+    .reason-chip.active{background:var(--red);color:#fff;opacity:1;}
     .falta-group{margin-bottom:12px;}
     .falta-group-title{font-weight:700;font-size:12.5px;color:var(--red);margin-bottom:6px;}
     .falta-row{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;padding:5px 0;color:var(--text);cursor:pointer;}
@@ -1184,11 +1281,16 @@ function renderEvaluacionView(){
     </div>
   </div>`;
 
-  // ---- restore visual state from evalState.answers/faltasChecked ----
+  // ---- restore visual state from evalState.answers/reasons/faltasChecked ----
   Object.keys(evalState.answers).forEach(subId=>{
     const val = evalState.answers[subId];
     const btn = document.querySelector(`.toggle-btn[data-sub="${subId}"][data-val="${val}"]`);
     if(btn) btn.classList.add('active');
+  });
+  Object.keys(evalState.reasons).forEach(subId=>{
+    const reason = evalState.reasons[subId];
+    const chip = document.querySelector(`.reason-chip[data-sub="${subId}"][data-reason="${CSS.escape(reason)}"]`);
+    if(chip) chip.classList.add('active');
   });
   evalState.faltasChecked.forEach(fid=>{
     const cb = document.querySelector(`.falta-check[data-fid="${fid}"]`);
@@ -1277,11 +1379,29 @@ function bindEvaluacionEvents(){
 
   view.querySelectorAll('.toggle-btn').forEach(b=>{
     b.addEventListener('click', ()=>{
-      const sub = b.dataset.sub, val = b.dataset.val==='true';
+      const sub = b.dataset.sub;
+      const raw = b.dataset.val;
+      const val = raw==='true' ? true : (raw==='na' ? 'na' : false);
       evalState.answers[sub] = val;
+      if(val!==false) delete evalState.reasons[sub];
       const row = b.closest('.sub-row');
       row.querySelectorAll('.toggle-btn').forEach(x=>x.classList.remove('active'));
       b.classList.add('active');
+      const reasonsBox = row.querySelector('.sub-reasons');
+      if(reasonsBox){
+        reasonsBox.style.display = (val===false) ? 'flex' : 'none';
+        if(val!==false) reasonsBox.querySelectorAll('.reason-chip').forEach(c=>c.classList.remove('active'));
+      }
+      recalcEvaluacion();
+    });
+  });
+
+  view.querySelectorAll('.reason-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const sub = chip.dataset.sub;
+      evalState.reasons[sub] = chip.dataset.reason;
+      chip.closest('.sub-reasons').querySelectorAll('.reason-chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
       recalcEvaluacion();
     });
   });
@@ -1304,7 +1424,7 @@ function bindEvaluacionEvents(){
 }
 
 function recalcEvaluacion(){
-  const r = computeResultado(evalState.answers, evalState.faltasChecked);
+  const r = computeResultado(evalState.answers, evalState.faltasChecked, evalState.reasons);
   let itemsDone = 0;
   PAUTA.forEach(cat=>cat.items.forEach(item=>{
     const res = r.items[item.id];
@@ -1341,7 +1461,7 @@ async function guardarEvaluacion(){
     if(!evalState.motivo){ alert('Selecciona el motivo de no retención.'); return; }
   }
   if(!evalState.tipoEval){ alert('Selecciona el tipo de evaluación: Muestral o Seguimiento.'); return; }
-  const r = evalState._result || computeResultado(evalState.answers, evalState.faltasChecked);
+  const r = evalState._result || computeResultado(evalState.answers, evalState.faltasChecked, evalState.reasons);
   if(!r.anulado && !r.allComplete){
     if(!confirm('Hay sub-ítems sin calificar (se contarán como 0%). ¿Guardar de todas formas?')) return;
   }
@@ -1351,7 +1471,7 @@ async function guardarEvaluacion(){
     grupo: evalState.grupo, evaluador: evalState.evaluador, fecha: evalState.fecha,
     retenida: evalState.retenida, aQuien: evalState.aQuien, motivo: evalState.motivo, motivoDetalle: evalState.motivoDetalle,
     tipoEval: evalState.tipoEval,
-    answers: {...evalState.answers}, faltasChecked: [...evalState.faltasChecked],
+    answers: {...evalState.answers}, reasons: {...evalState.reasons}, faltasChecked: [...evalState.faltasChecked],
     faltasTexto: evalState.faltasChecked.map(fid=>{const cb=document.querySelector(`.falta-check[data-fid="${fid}"]`); return cb?cb.dataset.txt:fid;}),
     feedback: evalState.feedback, anulado: r.anulado, finalScore: r.anulado?0:r.finalScore,
     itemResults: r.items, createdAt: new Date().toISOString()
@@ -1448,7 +1568,7 @@ function buildPdfHTML(record){
 }
 
 function generarPDFEvaluacion(){
-  const r = evalState._result || computeResultado(evalState.answers, evalState.faltasChecked);
+  const r = evalState._result || computeResultado(evalState.answers, evalState.faltasChecked, evalState.reasons);
   const record = {
     nombre: evalState.nombre, celular: evalState.celular, grupo: evalState.grupo, evaluador: evalState.evaluador,
     fecha: evalState.fecha, retenida: evalState.retenida, aQuien: evalState.aQuien, motivo: evalState.motivo, motivoDetalle: evalState.motivoDetalle,
@@ -2236,12 +2356,15 @@ function buildMotivoDetalle(categoria){
   return { rows, total: evs.length, totalAnuladas: evs.filter(e=>e.anulado).length };
 }
 
-// Devuelve los sub-ítems de la pauta marcados como "No cumple" en una evaluación puntual.
+// Devuelve los sub-ítems de la pauta marcados como "No cumple" en una evaluación puntual (con su razón específica si existe).
 function failedSubitemsForEval(e){
   if(!e.answers) return [];
   const out=[];
   PAUTA.forEach(cat=>cat.items.forEach(item=>item.sub.forEach(s=>{
-    if(e.answers[s.id]===false) out.push(s.t);
+    if(e.answers[s.id]===false){
+      const reason = e.reasons && e.reasons[s.id];
+      out.push(reason ? `${s.t}: ${reason}` : s.t);
+    }
   })));
   return out;
 }
