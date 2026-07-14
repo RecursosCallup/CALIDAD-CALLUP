@@ -439,12 +439,14 @@ let evaluaciones = [];
 let retenciones = {};    // {'YYYY-MM-DD': [{nombre,antiguedad,llamadas,retenciones,porcentaje}]}
 let retMesActual = new Date(); // mes que se muestra en el calendario de retenciones
 let dashboardTipoFilter = 'todos'; // 'todos' | 'Muestral' | 'Seguimiento'
+let dashboardMotivoRetenida = false; // false = No retenida | true = Retenida (panel "Retención por motivo" del dashboard)
 let reportesTab = 'cruce';        // 'cruce' | 'item' | 'subitem'
 let reportesPeriodType = 'semana'; // 'semana' | 'mes' | 'todo'
 let reportesPeriodRef = new Date();
 let reportesThresholds = { qAlta:90, qBaja:60, rAlta:60, rCritica:45 };
 let reportesMotivoCat = 'Agente';  // 'Agente' | 'Cliente' | 'Proceso'
 let reportesMotivoSel = null;      // motivo específico seleccionado para ver el detalle
+let reportesMotivoRetenida = false; // false = No retenida | true = Retenida
 
 function uid(prefix){ return (prefix||'id')+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
 function fmtDate(d){
@@ -642,15 +644,16 @@ function computeSubitemStats(list){
     return a.pct-b.pct;
   });
 }
-function computeMotivoStats(list){
+function computeMotivoStats(list, retenida){
+  retenida = retenida===true ? true : false; // false = No retenida (por defecto) | true = Retenida
   list = list || evaluaciones;
-  const noRet = list.filter(e=>e.retenida===false);
+  const grupo = list.filter(e=>e.retenida===retenida);
   const counts = {Agente:0, Cliente:0, Proceso:0};
   let sinEspecificar = 0;
-  noRet.forEach(e=>{
+  grupo.forEach(e=>{
     if(e.aQuien && counts.hasOwnProperty(e.aQuien)) counts[e.aQuien]++; else sinEspecificar++;
   });
-  return { counts, sinEspecificar, total: noRet.length };
+  return { counts, sinEspecificar, total: grupo.length };
 }
 
 function weekKey(dateStr){
@@ -738,7 +741,13 @@ function renderDashboard(){
         <div id="stats-categoria" class="gauge-panel"></div>
       </div>
       <div class="card panel">
-        <div class="panel-head"><h3>No retenida por motivo</h3><span class="hint">Agente · Cliente · Proceso</span></div>
+        <div class="panel-head">
+          <h3>Retención por motivo</h3>
+          <div class="dash-tipo-toggle" id="dash-motivo-ret-toggle">
+            <button type="button" class="dash-tipo-btn ${!dashboardMotivoRetenida?'active':''}" data-ret="no">No retenida</button>
+            <button type="button" class="dash-tipo-btn ${dashboardMotivoRetenida?'active':''}" data-ret="si">Retenida</button>
+          </div>
+        </div>
         <div id="stats-motivo"></div>
       </div>
     </div>
@@ -776,7 +785,7 @@ function renderDashboard(){
     document.getElementById('caption-semanal').textContent = '';
     document.getElementById('caption-mensual').textContent = '';
     document.getElementById('stats-categoria').innerHTML = '<div class="empty">Sin datos todavía.</div>';
-    document.getElementById('stats-motivo').innerHTML = '<div class="empty">Sin llamadas no retenidas registradas.</div>';
+    document.getElementById('stats-motivo').innerHTML = '<div class="empty">Sin llamadas registradas.</div>';
     document.getElementById('stats-item').innerHTML = '<div class="empty">Sin datos todavía.</div>';
     document.getElementById('stats-subitem').innerHTML = '<div class="empty">Sin datos todavía.</div>';
     document.getElementById('chart-trend').outerHTML = '<div class="empty">Registra evaluaciones para ver la tendencia.</div>';
@@ -854,10 +863,10 @@ function renderDashboard(){
       computeCategoriaStats(evs).map((c,i)=>gaugeCardHTML(CAT_GAUGE[i].code, c.label, c.pct, CAT_GAUGE[i].color, c.n)).join('') +
       '</div>';
 
-    // no retenida por motivo
-    const ms = computeMotivoStats(evs);
+    // retención por motivo (No retenida / Retenida)
+    const ms = computeMotivoStats(evs, dashboardMotivoRetenida);
     if(ms.total===0){
-      document.getElementById('stats-motivo').innerHTML = '<div class="empty">Sin llamadas no retenidas registradas.</div>';
+      document.getElementById('stats-motivo').innerHTML = `<div class="empty">Sin llamadas ${dashboardMotivoRetenida?'retenidas':'no retenidas'} registradas.</div>`;
     } else {
       const motivoColors = {Agente:'#C0392B', Cliente:'#C8862A', Proceso:'#2E6DA4'};
       let mh = '';
@@ -903,6 +912,13 @@ function renderDashboard(){
   document.querySelectorAll('#dash-tipo-toggle .dash-tipo-btn').forEach(btn=>{
     btn.onclick = ()=>{
       dashboardTipoFilter = btn.dataset.tipo;
+      renderDashboard();
+    };
+  });
+
+  document.querySelectorAll('#dash-motivo-ret-toggle .dash-tipo-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      dashboardMotivoRetenida = (btn.dataset.ret==='si');
       renderDashboard();
     };
   });
@@ -1226,14 +1242,14 @@ function renderEvaluacionView(){
           <button type="button" id="btn-ret-si" class="${evalState.retenida===true?'active ret':''}">✓ Retenida</button>
           <button type="button" id="btn-ret-no" class="${evalState.retenida===false?'active noret':''}">✕ No retenida</button>
         </div>
-        <div id="noretenida-block" style="display:${evalState.retenida===false?'block':'none'}">
-          <label style="font-size:12px;font-weight:600;color:var(--text-soft);display:block;margin-bottom:6px;">¿A qué se debe?</label>
+        <div id="noretenida-block" style="display:${evalState.retenida!==null?'block':'none'}">
+          <label style="font-size:12px;font-weight:600;color:var(--text-soft);display:block;margin-bottom:6px;">¿A qué se debe${evalState.retenida===true?' la retención':evalState.retenida===false?' la no retención':''}?</label>
           <div class="aquien-opt">
             <button type="button" data-aq="Agente" class="${evalState.aQuien==='Agente'?'active':''}">Agente</button>
             <button type="button" data-aq="Cliente" class="${evalState.aQuien==='Cliente'?'active':''}">Cliente</button>
             <button type="button" data-aq="Proceso" class="${evalState.aQuien==='Proceso'?'active':''}">Proceso</button>
           </div>
-          <div class="field"><label>Motivo de no retención</label>
+          <div class="field"><label>Motivo de ${evalState.retenida===true?'retención':'no retención'}</label>
             <select id="f-motivo">
               <option value="">Selecciona un motivo...</option>
               ${(MOTIVO_OPTIONS[evalState.aQuien]||[]).map(m=>`<option value="${escapeHtml(m)}" ${evalState.motivo===m?'selected':''}>${escapeHtml(m)}</option>`).join('')}
@@ -1456,9 +1472,10 @@ async function guardarEvaluacion(){
   if(!evalState.nombre){ alert('Ingresa el nombre del asesor.'); return; }
   if(!evalState.evaluador){ alert('Ingresa quién realiza la evaluación.'); return; }
   if(evalState.retenida===null){ alert('Indica si la llamada fue retenida o no.'); return; }
-  if(evalState.retenida===false){
-    if(!evalState.aQuien){ alert('Indica a qué se debe la no retención (Agente / Cliente / Proceso).'); return; }
-    if(!evalState.motivo){ alert('Selecciona el motivo de no retención.'); return; }
+  if(evalState.retenida===true || evalState.retenida===false){
+    const etiqueta = evalState.retenida===true ? 'la retención' : 'la no retención';
+    if(!evalState.aQuien){ alert(`Indica a qué se debe ${etiqueta} (Agente / Cliente / Proceso).`); return; }
+    if(!evalState.motivo){ alert(`Selecciona el motivo de ${evalState.retenida===true?'retención':'no retención'}.`); return; }
   }
   if(!evalState.tipoEval){ alert('Selecciona el tipo de evaluación: Muestral o Seguimiento.'); return; }
   const r = evalState._result || computeResultado(evalState.answers, evalState.faltasChecked, evalState.reasons);
@@ -1503,7 +1520,7 @@ function buildPdfHTML(record){
   });
 
   const retenidaHTML = r.retenida
-    ? `<span style="color:#1E8E5A;font-weight:700;">RETENIDA</span>`
+    ? `<span style="color:#1E8E5A;font-weight:700;">RETENIDA</span> — atribuido a <b>${escapeHtml(r.aQuien||'—')}</b><div style="margin-top:4px;color:#646E7C;">${escapeHtml(r.motivo||'—')}${r.motivoDetalle?' — '+escapeHtml(r.motivoDetalle):''}</div>`
     : `<span style="color:#C0392B;font-weight:700;">NO RETENIDA</span> — atribuido a <b>${escapeHtml(r.aQuien||'—')}</b><div style="margin-top:4px;color:#646E7C;">${escapeHtml(r.motivo||'—')}${r.motivoDetalle?' — '+escapeHtml(r.motivoDetalle):''}</div>`;
 
   const faltasHTML = (r.faltasTexto && r.faltasTexto.length)
@@ -2203,7 +2220,7 @@ function renderReportes(){
           <button class="dash-tipo-btn ${reportesTab==='cruce'?'active':''}" data-tab="cruce">Calidad vs Retención</button>
           <button class="dash-tipo-btn ${reportesTab==='item'?'active':''}" data-tab="item">Nota por ítem</button>
           <button class="dash-tipo-btn ${reportesTab==='subitem'?'active':''}" data-tab="subitem">Nota por sub-ítem</button>
-          <button class="dash-tipo-btn ${reportesTab==='motivo'?'active':''}" data-tab="motivo">No retenida por motivo</button>
+          <button class="dash-tipo-btn ${reportesTab==='motivo'?'active':''}" data-tab="motivo">Retención por motivo</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <div class="dash-tipo-toggle" id="reportes-periodo">
@@ -2338,13 +2355,13 @@ function exportPivotExcel(kind, sheetName, filePrefix){
   XLSX.writeFile(wb, `${filePrefix}_${periodFileTag()}.xlsx`);
 }
 
-/* ============================== REPORTE: NO RETENIDA POR MOTIVO ============================== */
-// Agrupa las llamadas "no retenidas" del periodo seleccionado, filtradas por categoría (Agente/Cliente/Proceso),
-// por el motivo específico registrado en cada evaluación.
+/* ============================== REPORTE: RETENCIÓN POR MOTIVO ============================== */
+// Agrupa las llamadas (retenidas o no retenidas, según reportesMotivoRetenida) del periodo seleccionado,
+// filtradas por categoría (Agente/Cliente/Proceso), por el motivo específico registrado en cada evaluación.
 function buildMotivoDetalle(categoria){
   const range = getPeriodRange(reportesPeriodType, reportesPeriodRef);
   // Se incluyen también las evaluaciones anuladas (por falta grave) que fueron marcadas como no retenidas.
-  const evs = evaluaciones.filter(e=>e.retenida===false && e.aQuien===categoria && inRange(e.fecha, range));
+  const evs = evaluaciones.filter(e=>e.retenida===reportesMotivoRetenida && e.aQuien===categoria && inRange(e.fecha, range));
   const map = new Map();
   evs.forEach(e=>{
     const key = (e.motivo && e.motivo.trim()) ? e.motivo : 'Sin especificar';
@@ -2373,12 +2390,17 @@ function renderMotivoReport(){
   const catColors = {Agente:'#C0392B', Cliente:'#C8862A', Proceso:'#2E6DA4'};
   const data = buildMotivoDetalle(reportesMotivoCat);
 
+  const etiquetaEstado = reportesMotivoRetenida ? 'retenida(s)' : 'no retenida(s)';
   let html = `
     <div class="card panel">
       <div class="panel-head">
         <div>
-          <h3>No retenida por motivo</h3>
-          <span class="hint">${periodLabel(reportesPeriodType, reportesPeriodRef)} · ${data.total} llamada(s) no retenida(s) atribuida(s) a "${escapeHtml(reportesMotivoCat)}"${data.totalAnuladas>0?` · incluye ${data.totalAnuladas} anulada(s)`:''}</span>
+          <h3>${reportesMotivoRetenida?'Retenida':'No retenida'} por motivo</h3>
+          <span class="hint">${periodLabel(reportesPeriodType, reportesPeriodRef)} · ${data.total} llamada(s) ${etiquetaEstado} atribuida(s) a "${escapeHtml(reportesMotivoCat)}"${data.totalAnuladas>0?` · incluye ${data.totalAnuladas} anulada(s)`:''}</span>
+        </div>
+        <div class="dash-tipo-toggle" id="motivo-ret-toggle">
+          <button type="button" class="dash-tipo-btn ${!reportesMotivoRetenida?'active':''}" data-ret="no">No retenida</button>
+          <button type="button" class="dash-tipo-btn ${reportesMotivoRetenida?'active':''}" data-ret="si">Retenida</button>
         </div>
       </div>
       <div class="dash-tipo-toggle" id="motivo-cat-toggle" style="margin-bottom:16px;">
@@ -2395,7 +2417,7 @@ function renderMotivoReport(){
           <div style="width:80px;text-align:right;font-family:var(--font-mono);font-size:12px;font-weight:700;">${r.n} (${pct.toFixed(0)}%)</div>
           <div style="width:20px;text-align:right;color:var(--text-faint);">${isOpen?'▾':'▸'}</div>
         </div>`;
-      }).join('') : '<div class="empty">Sin llamadas no retenidas atribuidas a este grupo en el periodo seleccionado.</div>'}
+      }).join('') : `<div class="empty">Sin llamadas ${etiquetaEstado} atribuidas a este grupo en el periodo seleccionado.</div>`}
     </div>
   `;
 
@@ -2478,6 +2500,9 @@ function renderMotivoReport(){
   document.querySelectorAll('#motivo-cat-toggle .dash-tipo-btn').forEach(b=>b.onclick=()=>{
     reportesMotivoCat = b.dataset.cat; reportesMotivoSel = null; renderMotivoReport();
   });
+  document.querySelectorAll('#motivo-ret-toggle .dash-tipo-btn').forEach(b=>b.onclick=()=>{
+    reportesMotivoRetenida = (b.dataset.ret==='si'); reportesMotivoSel = null; renderMotivoReport();
+  });
   document.querySelectorAll('#reportes-body .motivo-row[data-motivo]').forEach(row=>{
     row.onclick = ()=>{
       const m = row.dataset.motivo;
@@ -2490,7 +2515,7 @@ function renderMotivoReport(){
 function exportMotivoExcel(){
   const range = getPeriodRange(reportesPeriodType, reportesPeriodRef);
   // Se incluyen también las evaluaciones anuladas por falta grave.
-  const evs = evaluaciones.filter(e=>e.retenida===false && e.aQuien===reportesMotivoCat && inRange(e.fecha, range));
+  const evs = evaluaciones.filter(e=>e.retenida===reportesMotivoRetenida && e.aQuien===reportesMotivoCat && inRange(e.fecha, range));
   const data = evs.map(e=>{
     const asesor = findAsesorByName(e.nombre);
     const failed = failedSubitemsForEval(e);
@@ -2507,10 +2532,12 @@ function exportMotivoExcel(){
       'Items fallidos': failed.join('; ')
     };
   });
+  const estadoTag = reportesMotivoRetenida ? 'retenida' : 'no_retenida';
+  const estadoHoja = reportesMotivoRetenida ? 'Retenida por motivo' : 'No retenida por motivo';
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'No retenida por motivo');
-  XLSX.writeFile(wb, `no_retenida_motivo_${reportesMotivoCat}_${periodFileTag()}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws, estadoHoja);
+  XLSX.writeFile(wb, `${estadoTag}_motivo_${reportesMotivoCat}_${periodFileTag()}.xlsx`);
 }
 
 /* ============================== INIT ============================== */
