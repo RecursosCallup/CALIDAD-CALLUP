@@ -2132,7 +2132,10 @@ function clasificarCuadrante(notaCal, pctRet){
 
 function buildCruceData(){
   const range = getPeriodRange(reportesPeriodType, reportesPeriodRef);
-  const evs = evaluaciones.filter(e=>!e.anulado && e.nombre && inRange(e.fecha, range));
+  // Se incluyen TODAS las evaluaciones de la muestra (aprobadas y anuladas).
+  // Las anuladas cuentan en la Diana y aportan 0% al promedio de Nota Cal.,
+  // igual que en el reporte de motivos.
+  const evs = evaluaciones.filter(e=>e.nombre && inRange(e.fecha, range));
   const rets = flatRetenciones().filter(r=>r.nombre && inRange(r.fecha, range));
   const map = new Map();
   const ensure = (nombre)=>{
@@ -2148,11 +2151,12 @@ function buildCruceData(){
 
   const rows = [...map.values()].filter(v=>v.evals.length || v.retRecords.length).map(v=>{
     const diana = v.evals.length;
-    const notaCal = v.evals.length ? v.evals.reduce((s,e)=>s+e.finalScore,0)/v.evals.length : null;
+    const notaCal = v.evals.length ? v.evals.reduce((s,e)=>s+(e.anulado?0:e.finalScore),0)/v.evals.length : null;
+    const anuladas = v.evals.filter(e=>e.anulado).length;
     const totalLlam = v.retRecords.reduce((s,r)=>s+(Number(r.llamadas)||0),0);
     const totalRet = v.retRecords.reduce((s,r)=>s+(Number(r.retenciones)||0),0);
     const pctRet = totalLlam>0 ? (totalRet/totalLlam*100) : null;
-    return {nombre:v.nombre, sup:v.sup, diana, notaCal, pctRet, llam:totalLlam};
+    return {nombre:v.nombre, sup:v.sup, diana, anuladas, notaCal, pctRet, llam:totalLlam};
   });
   rows.sort((a,b)=>a.nombre.localeCompare(b.nombre));
   return rows;
@@ -2275,7 +2279,7 @@ function renderCruceReport(){
         <label>Retención crítica &lt; <input type="number" id="th-rcritica" value="${t.rCritica}" style="width:50px;padding:3px 5px;border:1px solid var(--border);border-radius:6px;">%</label>
         <button class="btn btn-dark btn-sm" id="th-apply">Aplicar</button>
       </div>
-      <div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;">"Diana" = N° de evaluaciones (muestra) realizadas al asesor en el periodo · "Sup." = grupo/supervisor asignado en Base de datos.</div>
+      <div style="font-size:11px;color:var(--text-faint);margin-bottom:8px;">"Diana" = N° de evaluaciones (muestra) realizadas al asesor en el periodo, incluye aprobadas y anuladas · Las anuladas se contabilizan como 0% en la Nota Cal. · "Sup." = grupo/supervisor asignado en Base de datos.</div>
       <div style="overflow-x:auto;">
       <table>
         <tr><th>Asesor</th><th>Diana</th><th>Sup.</th><th>Nota Cal.</th><th>% Ret.</th><th>Llam.</th><th>Análisis</th></tr>
@@ -2283,7 +2287,7 @@ function renderCruceReport(){
           const q = clasificarCuadrante(r.notaCal, r.pctRet);
           return `<tr>
             <td>${escapeHtml(r.nombre)}</td>
-            <td style="text-align:center;">${r.diana||'—'}</td>
+            <td style="text-align:center;">${r.diana||'—'}${r.anuladas>0?`<div style="font-size:10px;color:var(--red);font-weight:600;">${r.anuladas} anulada${r.anuladas>1?'s':''}</div>`:''}</td>
             <td>${escapeHtml(r.sup)}</td>
             <td style="font-weight:700;color:${colorForPct(r.notaCal)};">${r.notaCal!=null?r.notaCal.toFixed(1)+'%':'—'}</td>
             <td style="font-weight:700;color:${colorForPct(r.pctRet)};">${r.pctRet!=null?r.pctRet.toFixed(1)+'%':'—'}</td>
@@ -2330,7 +2334,7 @@ function exportCruceExcel(){
   const data = rows.map(r=>{
     const q = clasificarCuadrante(r.notaCal, r.pctRet);
     return {
-      Asesor:r.nombre, Diana:r.diana, Supervisor:r.sup,
+      Asesor:r.nombre, Diana:r.diana, 'Anuladas en muestra':r.anuladas, Supervisor:r.sup,
       'Nota Cal. (%)': r.notaCal!=null? Math.round(r.notaCal*10)/10 : '',
       '% Ret.': r.pctRet!=null? Math.round(r.pctRet*10)/10 : '',
       Llamadas: r.llam, Analisis: q.label
