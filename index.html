@@ -449,9 +449,17 @@ let reportesMotivoSel = null;      // motivo específico seleccionado para ver e
 let reportesMotivoRetenida = false; // false = No retenida | true = Retenida
 
 function uid(prefix){ return (prefix||'id')+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
+// Parsea una fecha evitando el bug de zona horaria: "YYYY-MM-DD" se interpreta
+// por defecto como medianoche UTC, lo que en Perú (UTC-5) la corre al día anterior.
+// Esta función fuerza la interpretación en hora LOCAL.
+function parseLocalDate(d){
+  if(d instanceof Date) return d;
+  if(typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) return new Date(d+'T00:00:00');
+  return new Date(d);
+}
 function fmtDate(d){
   if(!d) return '—';
-  const dt = (d instanceof Date)? d : new Date(d);
+  const dt = parseLocalDate(d);
   if(isNaN(dt)) return '—';
   return dt.toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit',year:'numeric'});
 }
@@ -569,12 +577,12 @@ function customWeekRange(date){
   };
 }
 function isInCurrentWeek(dateStr){
-  const d = new Date(dateStr); if(isNaN(d)) return false;
+  const d = parseLocalDate(dateStr); if(isNaN(d)) return false;
   const r = customWeekRange(new Date());
   return d>=r.start && d<r.end;
 }
 function isInCurrentMonth(dateStr){
-  const d = new Date(dateStr); if(isNaN(d)) return false;
+  const d = parseLocalDate(dateStr); if(isNaN(d)) return false;
   const now = new Date();
   return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
 }
@@ -657,12 +665,12 @@ function computeMotivoStats(list, retenida){
 }
 
 function weekKey(dateStr){
-  const d = new Date(dateStr); if(isNaN(d)) return null;
+  const d = parseLocalDate(dateStr); if(isNaN(d)) return null;
   const r = customWeekRange(d);
   return `${r.year}-${String(r.month+1).padStart(2,'0')}-S${r.weekNum}`;
 }
 function monthKey(dateStr){
-  const d = new Date(dateStr); if(isNaN(d)) return null;
+  const d = parseLocalDate(dateStr); if(isNaN(d)) return null;
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 }
 function weekLabel(k){
@@ -1682,7 +1690,7 @@ function renderPerfilDetail(a){
 
   const now = new Date();
   const mesAnteriorEvs = evs.filter(e=>{
-    const d=new Date(e.fecha); const m=new Date(now.getFullYear(), now.getMonth()-1,1);
+    const d=parseLocalDate(e.fecha); const m=new Date(now.getFullYear(), now.getMonth()-1,1);
     return d.getMonth()===m.getMonth() && d.getFullYear()===m.getFullYear();
   });
   const avgMesAnterior = avgOf(mesAnteriorEvs);
@@ -2083,7 +2091,7 @@ function getPeriodRange(type, ref){
 }
 function inRange(dateStr, range){
   if(!range) return true;
-  const d = new Date(dateStr); if(isNaN(d)) return false;
+  const d = parseLocalDate(dateStr); if(isNaN(d)) return false;
   return d>=range.start && d<range.end;
 }
 function periodLabel(type, ref){
